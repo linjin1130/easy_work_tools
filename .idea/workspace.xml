@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="55d5beec-7bfd-4dcb-b086-dcffd1c27e63" name="Default" comment="">
+    <list default="true" id="55d5beec-7bfd-4dcb-b086-dcffd1c27e63" name="Default" comment="waorkspace.xml">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -30,8 +30,8 @@
       <file leaf-file-name="tang_car_use_stat-new.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/python3/tang_car_use_stat-new.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="323">
-              <caret line="349" column="14" lean-forward="false" selection-start-line="349" selection-start-column="14" selection-end-line="349" selection-end-column="14" />
+            <state relative-caret-position="247">
+              <caret line="345" column="48" lean-forward="false" selection-start-line="345" selection-start-column="48" selection-end-line="345" selection-end-column="48" />
               <folding>
                 <element signature="e#0#9#0" expanded="true" />
                 <element signature="e#795#1208#0" expanded="false" />
@@ -146,12 +146,21 @@
       <option name="presentableId" value="Default" />
       <updated>1510798791475</updated>
     </task>
+    <task id="LOCAL-00001" summary="waorkspace.xml">
+      <created>1514278947967</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1514278947967</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="ToolWindowManager">
     <frame x="-8" y="-8" width="1382" height="744" extended-state="6" />
+    <editor active="true" />
     <layout>
-      <window_info id="Project" active="true" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.23645681" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.23645681" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.3127962" sideWeight="0.50292826" order="7" side_tool="true" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
@@ -175,6 +184,10 @@
   </component>
   <component name="VcsContentAnnotationSettings">
     <option name="myLimit" value="2678400000" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="waorkspace.xml" />
+    <option name="LAST_COMMIT_MESSAGE" value="waorkspace.xml" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager />
@@ -562,8 +575,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/python3/tang_car_use_stat-new.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="323">
-          <caret line="349" column="14" lean-forward="false" selection-start-line="349" selection-start-column="14" selection-end-line="349" selection-end-column="14" />
+        <state relative-caret-position="247">
+          <caret line="345" column="48" lean-forward="false" selection-start-line="345" selection-start-column="48" selection-end-line="345" selection-end-column="48" />
           <folding>
             <element signature="e#0#9#0" expanded="true" />
             <element signature="e#795#1208#0" expanded="false" />
