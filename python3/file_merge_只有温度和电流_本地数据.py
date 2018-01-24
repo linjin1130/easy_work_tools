@@ -40,8 +40,8 @@ delta_start = delta_stop+delta_day
 
 start_time = "20"+(date.today()-timedelta(days=delta_start)).strftime("%y%m%d")+"120000"
 stop_time  = "20"+(date.today()-timedelta(days=delta_stop)).strftime("%y%m%d")+"120000"
-start_time = "20171130120000"
-stop_time  = "20171218120000"
+start_time = "20171217120000"
+stop_time  = "20180105120000"
 def match_file(files_in, start_time, stop_time, matchcsv):
     files_in.sort()
     files_in.reverse()
