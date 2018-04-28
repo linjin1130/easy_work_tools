@@ -35,7 +35,8 @@ delta_stop = offset_day+start_day
 delta_start = delta_stop+delta_day
 start_time = "20"+(date.today()-timedelta(days=delta_start)).strftime("%y%m%d")+"120000"
 stop_time  = "20"+(date.today()-timedelta(days=delta_stop)).strftime("%y%m%d")+"120000"
-
+start_time = "20160915120000"
+stop_time  = "20180401120000"
 def match_file(files_in, start_time, stop_time, matchcsv):
     files_in.sort()
     files_in.reverse()
@@ -98,8 +99,12 @@ print("start time", start_time, "stop time", stop_time)
 
 ##筛选并获取数据
 targetfile_list = []
-raw_dir = os.getcwd()+"/raw_data/"
-merge_dir = os.getcwd()+"/merge_data/"
+# raw_dir = os.getcwd()+"/raw_data/"
+# merge_dir = os.getcwd()+"/merge_data/"
+
+data_path = "E:/工程相关/9XX/9XX数据"
+raw_dir = data_path+"/raw_data/"
+merge_dir = data_path+"/merge_data/"
 if(not os.path.exists(raw_dir)):
     os.makedirs(raw_dir)
 print(raw_dir)

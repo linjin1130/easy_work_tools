@@ -241,25 +241,28 @@ name_idx = 5
 def gen_list(src_list):
     for row in src_list:
         row[0] = replace_time(row[0])
-        if row[name_idx] in professor_list:
-            new_professor.append(row)
-        else:
-            new_row = row.copy()
-            if row[2] != None and row[7].find('小车') < 0:
+        timestr = row[0].split('.')
+        data_vld = 1
+        if data_vld:#timestr[0] == '2017' and timestr[1] > '02':
+            if row[name_idx] in professor_list:
+                new_professor.append(row)
+            else:
+                new_row = row.copy()
+                if row[2] != None and row[7].find('小车') < 0:
 
-                if row[name_idx - 1] > 140 and row[name_idx - 1] < 261:
-                    if int(row[2]) < 3:
-                        row[7] = '小车'
-                        new_row[7] = '小车'
-                        new_row[name_idx - 1] -= 140
-                        # print('出现核减',new_row)
-                        list_chae.append(new_row)
-                        row[name_idx - 1] = 140
-                        # print(row)
+                    if row[name_idx - 1] > 140 and row[name_idx - 1] < 261:
+                        if int(row[2]) < 3:
+                            row[7] = '小车'
+                            new_row[7] = '小车'
+                            new_row[name_idx - 1] -= 140
+                            # print('出现核减',new_row)
+                            list_chae.append(new_row)
+                            row[name_idx - 1] = 140
+                            # print(row)
 
-            # if row[2] != None and int(row[2]) > 4:
-            #     row[2] = 4
-            new_freespace.append(row)
+                # if row[2] != None and int(row[2]) > 4:
+                #     row[2] = 4
+                new_freespace.append(row)
 
 
 def gen_dic(key_idx, data_l):

@@ -9,10 +9,10 @@ def toc():
 import sys, os
 import struct
 
-filename = 'T2_QKDS_LZTX_SCI_20171216021029_20171216021629_0B'
+filename = 'T2_QKDS_LZTX_SCI_20180323014221_20180323014321_0B'
 
 folder = filename[filename.find('LZTX'):filename.find('LZTX')+23]
-inpath = r'E:/WORK/9XX/9XX数据/raw_data/LZTX/' #原始数据的目录
+inpath = r'E:/工程相关/9XX/9XX数据/raw_data/LZTX/' #原始数据的目录
 
 opath = os.path.join(inpath,folder)
 if(not os.path.exists(opath)):

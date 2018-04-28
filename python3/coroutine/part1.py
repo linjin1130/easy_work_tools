@@ -46,4 +46,5 @@ def grep(patten):
 # g.close()
 
 def coroutine(func):
-    def grep()
+    def grep():
+        pass
