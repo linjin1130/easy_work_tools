@@ -10,6 +10,7 @@ def ltc2000a_spi_config(da_in):
     da_in.SpiReadWrite(0, reg_addr=1, reg_data=1)
     da_in.SpiReadWrite(0, reg_addr=3, reg_data=5)
     da_in.SpiReadWrite(0, reg_addr=4, reg_data=3)
+    da_in.SpiReadWrite(0, reg_addr=9, reg_data=0)
     time.sleep(0.5)
     da_in.SpiReadWrite(0, reg_addr=4, reg_data=11)
 
@@ -40,8 +41,8 @@ def ltc2000a_spi_config_pg(da_in):
 
 def gen_and_send_wave(da):
     da_ctrl = waveform()
-    # da_ctrl.generate_dc(dc_code=0x7F7F)
-    da_ctrl.generate_sin(high=0x7FFF,offset=0)
+    da_ctrl.generate_dc(dc_code=0)
+    # da_ctrl.generate_sin(high=0x7FFF,offset=0)
     da_ctrl.generate_seq(length=len(da_ctrl.wave)>>3)
     print(da_ctrl.seq)
     # da_ctrl.generate_trig_seq(loopcnt=1024)
@@ -91,10 +92,13 @@ ltc200a_read_config(da)
 da.SpiReadWrite(0, reg_addr=2, reg_data=0)
 # da.SpiReadWrite(0, reg_addr=4, reg_data=8)
 ltc200a_read_config(da)
-da.SetDefaultVolt(4,32768)
-da.SetDefaultVolt(1,32768)
-da.SetDefaultVolt(2,32768)
-da.SetDefaultVolt(3,32768)
+
+volt = 0
+da.SetDefaultVolt(4,volt)
+da.SetDefaultVolt(1,volt)
+da.SetDefaultVolt(2,volt)
+da.SetDefaultVolt(3,volt)
+da.StartStop(240)
 gen_and_send_wave(da)
 ltc200a_read_config(da)
 da.disconnect()
