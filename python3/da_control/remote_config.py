@@ -109,7 +109,7 @@ def da_config_flash(new_ip, source_file_name):
         return False
 
 if __name__ == '__main__':
-    condigs1 = 'D:\\FPGA\\vivado_2016_4\\AD_DA\\DA_AD_PRJ\\CONFIG_FILES\\V01_43_10_SPANSION_U.bin'
+    condigs1 = 'D:\\FPGA\\vivado_2016_4\\AD_DA\\DA_AD_PRJ\\CONFIG_FILES\\V01_46_11_SPANSION_U.bin'
     condigs2 = 'D:\\FPGA\\vivado_2016_4\\AD_DA\\DA_AD_PRJ\\CONFIG_FILES\\V01_44_10_MICRON_U.bin'
     new_ip = '10.0.5.1'
     if int(new_ip.split('.')[2]) > 4:
