@@ -274,7 +274,7 @@ class DABoard(object):
         packet = struct.pack("4bLL", cmd, unpackedCtrl[0], unpackedCtrl[1], unpackedCtrl[2], data0, data1)
     #    print ('this is my cmd packet: {}'.format(repr(packet)))
         self.send_data(packet)
-        time.sleep(20)
+        time.sleep(10)
         print('da reprog done')
         return 0
 
@@ -315,6 +315,8 @@ class DABoard(object):
         self.Run_Command(self.board_def.CTRL_SYNC_CTRL,10,count << 12)
     def ClearTrigCount(self):
         self.Run_Command(self.board_def.CTRL_SYNC_CTRL,11,1 << 16)
+    def EnableDASync(self):
+        self.Run_Command(self.board_def.CTRL_SYNC_CTRL,12,1 << 16)
     def setDAADSyncDelay(self, cnt):
         # da sync方式为idelay
         self.Run_Command(self.board_def.CTRL_SYNC_CTRL,17,0x80000000) #EN_VT SET
