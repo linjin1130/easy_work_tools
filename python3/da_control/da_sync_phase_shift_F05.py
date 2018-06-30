@@ -10,6 +10,7 @@ da2_ip = '10.0.5.5'
 # board_status = da.connect(new_ip)
 board_status2 = da2.connect(da2_ip)
 da2.StartStop(240)
+da2.EnableDASync()
 # da.GetFlashType()   B`
 # da.DA_reset()
 cnt_arr = []
@@ -19,7 +20,7 @@ start_pos = 0
 temp_start_pos = 0
 stop_pos = 0
 temp_delta = 0
-for i in range(0,100):
+for i in range(0,200):
     da2.setDAADPLLDelay(0)
     time.sleep(0.01)
     cnt0 = da2.GetDAADSyncErrCnt()
@@ -46,7 +47,7 @@ for i in range(0,100):
     pre = delta
 
 print(start_pos,stop_pos)
-step = 100-stop_pos+int((stop_pos-start_pos)/2)
+step = 200-stop_pos+int((stop_pos-start_pos)/2)
 print('后退步数', str(step))
 for i in range(step):
     da2.setDAADPLLDelay(1)
