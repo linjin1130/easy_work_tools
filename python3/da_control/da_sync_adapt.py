@@ -5,14 +5,14 @@ da1 = DABoard()
 da2 = DABoard()
 
 adname = 'B18-R_21.35m-'
-da1_ip = '10.0.5.2'
+# da1_ip = '10.0.5.2'
 da2_ip = '10.0.5.4'
-board_status = da1.connect(da1_ip)
+# board_status = da1.connect(da1_ip)
 board_status2 = da2.connect(da2_ip)
 # da.GetFlashType()   B`
 # da.DA_reset()
-cnt_arr = []
-err_cnt = []
+# cnt_arr = []
+# err_cnt = []
 # da.SetIsMaster(0)
 # da2.SetIsMaster(1)
 # da_ctrl = waveform()
@@ -61,14 +61,18 @@ err_cnt = []
 
 
 
-da2.SetTrigInterval(200)
+da2.SetTrigInterval(5*250)
 da2.SetTrigCount(5000)
-da2.setOutputSwitch(0)# switch off
-da1.setOutputSwitch(0)# switch off
-da2.StartTrigAdapt()
-time.sleep(1)
-da2.setOutputSwitch(1)# switch off
-da1.setOutputSwitch(1)# switch off
+da2.SetTrigStart(1)
+da2.SetTrigStop(1002)
+da2.SetTrigCountL2(1)
+da2.SendIntTrig()
+# da2.setOutputSwitch(0)# switch off
+# da1.setOutputSwitch(0)# switch off
+# da2.StartTrigAdapt()
+# time.sleep(1)
+# da2.setOutputSwitch(1)# switch off
+# da1.setOutputSwitch(1)# switch off
 # for i in range(600):
 #     time.sleep(0.7)
 #     cnt = da2.GetDAADSyncErrCnt()
