@@ -4,11 +4,13 @@ import filecmp
 import os
 
 # 获取带配置文件的信息， 文件长度， 配置类型， FLASH配置地址
+block_size = 65536
 def get_config_info(source_file_name):
     filesize = os.path.getsize(source_file_name)
     print('待配置文件大小:{0}'.format(filesize))
     file = open(source_file_name,'rb')
     source_data = file.read(filesize)
+    file.close()
     head_bytes = source_data[88:92]
     # print(h)
     # head_bytes = h
@@ -59,13 +61,13 @@ def config_para_check(da, file_flash_type, update_file, golden_file):
     return config_info_valid, flash_type_str
 
 def erease_flash(da,flash_addr, filesize):
-    da.EraseFlashSector(flash_addr, (int)(filesize/65536) +2)
+    da.EraseFlashSector(flash_addr, (int)(filesize/block_size))
     for i in range(60):
         prog_status = da.GetEraseStatus()
-        print(prog_status,i)
+        print('等待{0}秒'.format(i*4))
         if(prog_status == 255):
             break
-        time.sleep(10)
+        time.sleep(4)
     print('Erase done')
 def write_flash(da, golden_file, source_data):
     temp_src = source_data+source_data[-260:-1]
@@ -87,13 +89,21 @@ def da_config_flash(new_ip, source_file_name):
     board_status = da.connect(new_ip)
     target_file_name = source_file_name.replace('.bin', '-'.join(['',new_ip,'rd_back.bin']))
     file_flash_type,flash_addr, filesize, update_file, golden_file, source_data = get_config_info(source_file_name)
+
     config_info_valid, flash_type_str = config_para_check(da, file_flash_type, update_file, golden_file)
     if config_info_valid == 0:
         print('配置参数有误，请检查')
         return False
     print('配置信息：写入地址：{0:x}；FLASH类型：{1:s}'.format(flash_addr, flash_type_str))
     start_time = time.time()
-    erease_flash(da,flash_addr, filesize)
+    print('根据FLASH特性，先擦除除第一个block外的所有block，最后再擦除第一个block')
+    print('擦除其他block')
+    erease_flash(da,flash_addr+block_size, filesize+block_size)
+    print('擦除第一个block')
+    erease_flash(da,flash_addr, block_size)
+    # print('写前面512字节')
+    # write_flash(da, golden_file, source_data[0:256])
+    # print('所有数据')
     write_flash(da, golden_file, source_data)
     read_flash(da, flash_addr, target_file_name, filesize)
     end_time = time.time()
