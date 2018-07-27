@@ -27,7 +27,7 @@ class DABoard(object):
         self.channel_amount = 4
         # Initialize core parameters
         self.daTrigDelayOffset  = 0
-        self.offsetCorr       = [0,0,0,0]
+        self.offsetCorr       = [0,0,0,0,0,0,0,0]
         self.da_chip          = 0 # 0 AD 9136  1 for LTC2000A
         # Create a TCP/IP socket
         self.sockfd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -317,6 +317,11 @@ class DABoard(object):
         self.Run_Command(self.board_def.CTRL_SYNC_CTRL,11,1 << 16)
     def EnableDASync(self):
         self.Run_Command(self.board_def.CTRL_SYNC_CTRL,12,1 << 16)
+    def SetTrigIntervalL2(self,T):
+        # self.Run_Command(self.board_def.CTRL_SYNC_CTRL,9,math.floor(T/4e-9) << 12)
+        self.Run_Command(self.board_def.CTRL_SYNC_CTRL,15,T << 12)
+    def SetTrigCountL2(self,count):
+        self.Run_Command(self.board_def.CTRL_SYNC_CTRL,16,count << 12)
     def setDAADSyncDelay(self, cnt):
         # da sync方式为idelay
         self.Run_Command(self.board_def.CTRL_SYNC_CTRL,17,0x80000000) #EN_VT SET
@@ -330,7 +335,7 @@ class DABoard(object):
         # da sync方式为移动pll相位
         # cnt = 0 增加相位
         # cnt = 1 减少相位
-        self.Run_Command(self.board_def.CTRL_SYNC_CTRL,17,cnt << 31 | 0x8000) #EN_VT SET
+        self.Run_Command(self.board_def.CTRL_SYNC_CTRL,17,cnt << 16 | 0x8000) #EN_VT SET
     def SetLoop(self,loop1,loop2,loop3,loop4):
         self.Run_Command(self.board_def.CTRL_SET_LOOP,(loop1 << 16) | loop2,(loop3 << 16) | loop4)
     def StartStop(self,index):
@@ -442,7 +447,7 @@ class DABoard(object):
         self.Run_Command(self.board_def.CTRL_ERASE_PART,addr, sectors)
         # self.sockfd.settimeout(5)
         # time.sleep(20)
-        print('sector erase stop')
+        # print('sector erase stop')
 
     def EraseFlashEntire(self):
         print('entire erase start')
