@@ -64,7 +64,26 @@ class waveform:
         # print(self.wave)
         print('波形长度：',len(self.wave))
 
-    def gen_comp_wave(self):
+    def gen_step_wave(self, steps=16, step_length=16):
+        '''产生台阶波形， 每个台阶16个采样点，台阶间隔为65536/steps'''
+        step_size = int(65536/steps)
+        step_da = 2
+        seq = []
+        wave = []
+        for i in range(steps):
+            seq = seq + [i*step_da,step_da,0,2<<13]
+            wave = wave + [step_size*i]*16
+        seq = seq + [step_da*steps,step_da,0,1<<15|2<<13]
+        wave = wave + [0]*16
+        self.wave = wave+[0]*32
+        # self.wave[0:16] = wave[-16:]
+        self.seq = seq+[0]*32
+        # print(self.seq)
+        # self.seq[3] = 2 << 13
+        # print(self.seq)
+
+
+    def gen_comp_wave(self, counter=10, length=(512>>3)):
         '''产生复杂波形， 第一区间是正弦长度512，第二区间是方波，长度512，第三区间是三角波，长度512
         第一个序列输出第一个区间，触发输出，第二个序列输出第二个区间，延时20个计数器输出'''
         self.generate_sin(repeat=32)
@@ -72,8 +91,8 @@ class waveform:
         self.generate_squr(repeat=10,hightime=32,lowtime1=16,lowtime2=16)
         comp_wave.extend(self.wave[:511])
         self.wave = comp_wave
-        unit = [0,512>>3,0,2<<13]
-        last = [512>>3,512>>3,10,1<<15|1<<13]
+        unit = [0,length,0,2<<13]
+        last = [512>>3,length,counter,1<<15|1<<13]
         self.seq = unit+last+[0,0,0,0]*6
 # aa = waveform()
 #
