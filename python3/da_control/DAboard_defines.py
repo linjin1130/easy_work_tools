@@ -26,7 +26,7 @@ class DABoard_Defines:
    CTRL_STOP_PLAY            = 0x5       
    CTRL_ERASE_ALL            = 0x6
    CTRL_ERASE_PART           = 0x7
-   CTRL_SET_SI570            = 0x8
+   CTRL_SET_WDTO             = 0x8
    CTRL_SET_LOOP             = 0x9       
    CTRL_FILL_MEM             = 0xA   
    CTRL_DUMP_MEM             = 0xB       
