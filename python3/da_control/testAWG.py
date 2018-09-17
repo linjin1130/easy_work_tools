@@ -27,13 +27,17 @@ class WaveFormGenerator:
             wave.append([vol]*(32-pad))
 
 da=DABoard()
-ip='10.0.3.25'
+ip='10.0.2.7'
 board_status = da.connect(ip)
 da.SetIsMaster(1)
 da.StartStop(0xF0)
+da.SetDefaultVolt(1,0)
+da.SetDefaultVolt(2,0)
+da.SetDefaultVolt(3,0)
+da.SetDefaultVolt(4,0)
 
 da2=DABoard()
-ip='10.0.5.5'
+ip='10.0.3.25'
 board_status = da2.connect(ip)
 da2.SetIsMaster(1)
 da2.StartStop(0xF0)
@@ -108,7 +112,9 @@ da.WriteWave(4,wave4)
 
 
 da.SetTrigInterval(50000)
+da.SetTrigInterval2(50000)
 da.SetTrigCount(1000000)
+da.SetTrigCount(3)
 da.StartStop(0x0F)
 
 da.SendIntTrig()

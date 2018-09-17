@@ -44,7 +44,12 @@ da_board_list3 = ['E24','E14','E29','D21','C11','B08','B05','D16','E03','E32','E
 da_board_list4 = ['E10','C08','C03','E16','E17','E18','E19','D08','D02','E12','E13','C09','E07','D05','D06','E04']
 
 #该列表表明想对哪几套系统生成参数配置文件
-da_brd_list = [da_board_list4]
+F_list = []
+for i in range(5,253):
+    F_list.append('F'+str(i))
+da_brd_list = [F_list]
+
+
 
 def set_check(set1, set2):
     #检查两个列表是否有重复

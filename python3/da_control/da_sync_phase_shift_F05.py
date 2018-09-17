@@ -6,7 +6,7 @@ da2 = DABoard()
 
 adname = 'B17-R_21.35m-'
 # new_ip = '10.0.2.7'
-da2_ip = '10.0.5.5'
+da2_ip = '10.0.5.2'
 # board_status = da.connect(new_ip)
 board_status2 = da2.connect(da2_ip)
 da2.StartStop(240)
@@ -20,7 +20,9 @@ start_pos = 0
 temp_start_pos = 0
 stop_pos = 0
 temp_delta = 0
-for i in range(0,200):
+total_steps = 300
+
+for i in range(0,total_steps):
     da2.setDAADPLLDelay(0)
     time.sleep(0.01)
     cnt0 = da2.GetDAADSyncErrCnt()
@@ -47,10 +49,22 @@ for i in range(0,200):
     pre = delta
 
 print(start_pos,stop_pos)
-step = 200-stop_pos+int((stop_pos-start_pos)/2)
+step = total_steps-int((stop_pos+start_pos)/2)
 print('后退步数', str(step))
-for i in range(step):
+for i in range(int((stop_pos+start_pos)/2), total_steps):
     da2.setDAADPLLDelay(1)
+    time.sleep(0.01)
+    cnt0 = da2.GetDAADSyncErrCnt()
+    time.sleep(0.01)
+    cnt = da2.GetDAADSyncErrCnt()
+    cnt_arr.append(i)
+    delta = 0
+    if cnt < cnt0:
+        delta = cnt+0x00100000000 - cnt0
+    else:
+        delta = cnt - cnt0
+    print(i, delta, cnt, cnt0)
+    err_cnt.append(delta)
 cnt = da2.GetDAADSyncErrCnt()
 print(cnt)
 plt.figure()

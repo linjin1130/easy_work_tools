@@ -1,19 +1,8 @@
-from DAboard import *
-import filecmp
+from datetime import time
 
-# import matplotlib.pyplot as plt
-da = DABoard()
-new_ip = '10.0.5.5'
-
-##单板工作，测试检测
-## 测试AD通过序列控制触发功能
-## 测试序列控制循环模式
-from DAboard import *
 import data_waves
-import math
-import random
+from DAboard import *
 import matplotlib.pyplot as plt
-
 #1一级触发输出开始单元
 ctrl = 0x1 << 11
 loop_cnt = 4
@@ -87,8 +76,8 @@ seq_D_low =  [start_addr,length,2,ctrl]
 #态判断输出单元
 ctrl = 0xC << 11
 start_addr1 = 1#1态
-start_addr2 = 1#2态
-start_addr3 = 1#NULL态
+start_addr2 = 2#2态
+start_addr3 = 3#NULL态
 start_addr4 = 1#0态
 seq_C_low =  [start_addr1<<8 | start_addr2,64,start_addr3<<8 | start_addr4,ctrl]
 
@@ -109,67 +98,25 @@ da_ctrl.wave = tmp_wave
 # plt.plot(da_ctrl.wave)
 # plt.show()
 
-seq_T_stop=[0,16,0,seq_D_low[3]|(1<<15)]
-temp_seq = seq_T_low+seq_L1_low+seq_L2_low+seq_L3_low+seq_D_low+seq_C_low+seq_J3_low+seq_J2_low+seq_L4_low+seq_D_low*2+seq_J4_low+seq_J1_low+seq_T_stop+[0,0,0,0]*4
-temp_seq = seq_T_low+seq_L1_low+seq_L2_low+seq_D_low+seq_C_low+seq_J2_low+seq_J1_low+seq_T_stop+[0,0,0,0]*4
-da_ctrl.seq = temp_seq
+seq_T_stop=[0,16,0,seq_T_low[3]]
+
 print(seq_T_low)
 print(seq_C_low)
 print(seq_D_low)
+print(seq_L1_low)
+print(seq_L2_low)
+print(seq_L3_low)
+print(seq_L4_low)
+print(seq_J1_low)
+print(seq_J2_low)
+print(seq_J3_low)
+print(seq_J4_low)
+
+da_ctrl.seq = seq_T_low+seq_L1_low+seq_D_low+seq_C_low+seq_J1_low+seq_T_stop+[0,0,0,0]*4
+wave, seq_mode = da_ctrl.wave_preview()
+time.sleep(1)
+da_ctrl.seq = seq_T_low+seq_L1_low+seq_L2_low+seq_L3_low+seq_D_low+seq_C_low+seq_J3_low+seq_J2_low+seq_L4_low+seq_D_low*2+seq_J4_low+seq_J1_low+seq_T_stop+[0,0,0,0]*4
+wave, seq_mode = da_ctrl.wave_preview()
+
+
 print(da_ctrl.seq)
-
-sample_count = da_ctrl.wave_preview()
-# print(da_ctrl.seq)
-# print(da_ctrl.wave)
-# plt.figure()
-# plt.plot(wave)
-# # plt.show()
-# plt.figure()
-# plt.plot(seq_mode)
-# plt.show()
-
-board_status = da.connect(new_ip)
-
-da.MultiBoardMode(1) #1是单板工作
-da.SetLoop(1,1,1,1)
-da.SetDefaultVolt(1,32768)
-da.SetDefaultVolt(2,32768)
-da.SetDefaultVolt(3,32768)
-da.SetDefaultVolt(4,32768)
-da.SetTrigInterval(200*250)
-da.SetTrigIntervalL2(200*250)
-da.SetTrigCount(1)
-da.SetTrigCountL2(1)
-da.ClearTrigCount()
-# # da_ctrl = waveform()
-# da_ctrl.generate_sin(repeat=2,cycle_count=20000)
-# da_ctrl.generate_seq(length=(len(da_ctrl.wave)>>3))
-da.StartStop(240)
-print(da_ctrl.seq)
-da_ctrl.seq = [0, 16, 0, 16384, 0, 0, 2, 2048, 1, 0, 3, 2048, 2, 0, 2, 2048, 16, 32, 2, 8192, 257, 64, 257, 24576, 2, 0, 3, 4096, 1, 0, 2, 4096, 0, 0, 1, 4096, 0, 16, 2, 40960, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-
-for i in range(1):
-    da.WriteSeq(1,da_ctrl.seq)
-    da.WriteWave(1,da_ctrl.wave)
-    da.WriteSeq(2,da_ctrl.seq)
-    da.WriteWave(2,da_ctrl.wave)
-    da.WriteSeq(3,da_ctrl.seq)
-    da.WriteWave(3,da_ctrl.wave)
-    da.WriteSeq(4,da_ctrl.seq)
-    da.WriteWave(4,da_ctrl.wave)
-    print(i)
-    # da.SetTrigCount(10)
-    da.SetDACStart(1)
-    da.SetDACStop(5)
-    da.SetTrigStart(2)
-    da.SetTrigStop(6)
-    da.StartStop(15)
-    da.SendIntTrig()
-    time.sleep(0.5)
-    # da.StartStop(240)
-    # time.sleep(1)
-
-da.StartStop(240)
-da.disconnect()
-if board_status < 0:
-    print('Failed to find board')
