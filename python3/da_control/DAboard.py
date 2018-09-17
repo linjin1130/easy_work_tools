@@ -150,7 +150,9 @@ class DABoard(object):
         if self.da_chip == 1:
             format = ">{0:d}h".format(len(wave))
         packet = struct.pack(format, *wave)
-
+        # print(packet[0:64])
+        # format = '{:02x}{:02x}-'*32
+        # print(format.format(*(packet[0:64])))
         #method 2
         # packet = struct.pack('H'*len(wave), *wave)
         #method 3
@@ -259,7 +261,7 @@ class DABoard(object):
         packet = struct.pack("4bLL", cmd, unpackedCtrl[0], unpackedCtrl[1], unpackedCtrl[2], data0, data1)
     #    print ('this is my cmd packet: {}'.format(repr(packet)))
         self.send_data(packet)
-        time.sleep(100)
+        time.sleep(5)
         print('da reset done')
         return 0
     def DA_reprog(self):
@@ -291,7 +293,18 @@ class DABoard(object):
     def SetRamRead(self,flag):
         # 1 read lower data
         self.Run_Command(self.board_def.CTRL_READ_FLAG,flag,0)
-
+    def Set_watchdog_timeout(self, reprog_timeout, reset_timeout ):
+        '''
+        设置DA板底层逻辑复位和重配置的超时时间，
+        reprog_timeout 重配置超时计数，单位10ms每计数
+        reset_timeout 重复位超时计数，单位10ms每计数
+        该命令目前有以下作用
+        1. 禁止喂狗
+        2. 禁止底层计数第10位为1时的自动复位
+        3. 超时时间到达时一定会发生复位或重配置（取决于谁的的计数小）
+        小心使用，目前只打算使用在配置过程中，实现可靠重配置
+        '''
+        self.Run_Command(self.board_def.CTRL_SET_WDTO, reprog_timeout, reset_timeout)
     def SetTotalCount(self,count):
         self.Run_Command(self.board_def.CTRL_SYNC_CTRL,1,count << 16)
     def SetDACStart(self,count):
@@ -331,11 +344,13 @@ class DABoard(object):
         self.Run_Command(self.board_def.CTRL_SYNC_CTRL,17,0x80000000) #EN_VT
     def setOutputSwitch(self,data):#0:switch off 1:switch on
         self.Run_Command(self.board_def.CTRL_SYNC_CTRL,18,data<<16)
+    def MultiBoardMode(self,data):#1:single board mode 0: multi board mode
+        self.Run_Command(self.board_def.CTRL_SYNC_CTRL,19,data<<16)
     def setDAADPLLDelay(self, cnt):
         # da sync方式为移动pll相位
         # cnt = 0 增加相位
         # cnt = 1 减少相位
-        self.Run_Command(self.board_def.CTRL_SYNC_CTRL,17,cnt << 16 | 0x8000) #EN_VT SET
+        self.Run_Command(self.board_def.CTRL_SYNC_CTRL,17,cnt << 31 | 0x00008000) #EN_VT SET
     def SetLoop(self,loop1,loop2,loop3,loop4):
         self.Run_Command(self.board_def.CTRL_SET_LOOP,(loop1 << 16) | loop2,(loop3 << 16) | loop4)
     def StartStop(self,index):
@@ -359,10 +374,12 @@ class DABoard(object):
         self.Write_Reg(7, channel, data)
         # self.Run_Command(self.board_def.CTRL_SET_OFFSET,channel, data)
     def SetDefaultVolt(self,channel, volt):
+
         volt = volt + self.offsetCorr[channel-1]
         volt = 65535 if volt > 65535 else volt  # 范围限制
         volt = 0 if volt < 0 else volt  # 范围限制
         volt = 65535 - volt         # 由于负通道接示波器，数据反相方便观察
+        #print('default volt{0}'.format(volt))
         self.Run_Command(self.board_def.CTRL_DAC_DEFAULT,channel-1, volt)
     def SetBoardcast(self,isBoardcast, period):
         self.Run_Command(self.board_def.CTRL_MONITOR,isBoardcast, period)
@@ -379,10 +396,16 @@ class DABoard(object):
         startaddr = (ch-1)<<19             #波形数据的内存起始地址，单位是字节。
         self.Write_RAM(startaddr, wave)
 
-    def WriteFLASH(self, data):
-        """Write to RAM command."""
+    def WriteFLASH(self, data, config_addr, is_first_page):
+        """Write to FLASH command.
+            data 待写入数据
+            config_addr 写入起始地址
+            is_first_page 是否写入第一页
+        """
         print('program flash start')
-        start_addr = 9 << 18
+        # 地址最高位为1表示 写入FLASH操作
+        # 地址低两位为1 表示常规写入， 为2表示写入第一页
+        start_addr = 0x80000000 | (config_addr & 0x00FFFF00) | (is_first_page+1)
         cmd = self.board_def.CMD_WRITE_MEM
         pad = 0xFFFFFF
         #I need to pack bank into 4 bytes and then only use the 3
@@ -400,38 +423,7 @@ class DABoard(object):
 
         self.send_data(data)
         #next read from the socket to ensure no errors occur
-        self.sockfd.settimeout(1000);
-        stat, data = self.receive_data()
-        self.sockfd.settimeout(5)
-        # print(packet)
-
-        print('program flash end')
-        if stat != 0x0:
-            print ('Ram Write Error stat={}!!!'.format(stat))
-            return self.board_def.STAT_ERROR
-
-    def WriteGoldenFLASH(self, data):
-        """Write to RAM command."""
-        print('program flash start')
-        start_addr = 10 << 18
-        cmd = self.board_def.CMD_WRITE_MEM
-        pad = 0xFFFFFF
-        #I need to pack bank into 4 bytes and then only use the 3
-        packedPad = struct.pack("L", pad)
-        unpackedPad = struct.unpack('4b', packedPad)
-        length = len(data)
-        packet = struct.pack("4bLL", cmd, unpackedPad[0], unpackedPad[1], unpackedPad[2], start_addr, length)
-        #Next I need to send the command
-        self.send_data(packet)
-        #next read from the socket
-        recv_stat, recv_data = self.receive_data()
-        if recv_stat != 0x0:
-            print ('Ram Write cmd Error stat={}!!!'.format(recv_stat))
-            return self.board_def.STAT_ERROR
-
-        self.send_data(data)
-        #next read from the socket to ensure no errors occur
-        self.sockfd.settimeout(1000);
+        self.sockfd.settimeout(400);
         stat, data = self.receive_data()
         self.sockfd.settimeout(5)
         # print(packet)
@@ -454,7 +446,7 @@ class DABoard(object):
         self.sockfd.settimeout(1000)
         self.Run_Command(self.board_def.CTRL_ERASE_ALL,0, 0)
         self.sockfd.settimeout(5)
-        time.sleep(60)
+        time.sleep(130)
         print('entire erase end')
 
     def StartTrigAdapt(self):
@@ -468,7 +460,9 @@ class DABoard(object):
         return status[937]
 
     def GetEraseStatus(self):
+        self.sockfd.settimeout(60)
         status = self.Read_RAM(0x80000000, 1024)
+        self.sockfd.settimeout(5)
         return status[916]
 
     def GetDAADSyncErrCnt(self):
