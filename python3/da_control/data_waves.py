@@ -212,7 +212,8 @@ class waveform:
         for seq_idx in range(len(self.seq) >> 2):
             idx = seq_idx << 2
             func = (self.seq[idx+3] >> 11) & 0x000F
-            level = self.seq[idx]&0x03
+            # level = self.seq[idx] #老版本
+            level = (self.seq[idx+3] >> 8) & 0x03
             count = self.seq[idx + 2]
             stop = (self.seq[idx + 3] >> 15) & 0x0001
 
@@ -247,7 +248,8 @@ class waveform:
             idx = seq_idx << 2
             stop = (seq[idx+3] >> 15) & 0x00001
             func = (seq[idx+3] >> 11) & 0x000F
-            level = seq[idx]&0x03
+            # level = seq[idx] #老版本
+            level = (seq[idx+3] >> 8) & 0x03
             count = seq[idx+2]
             jump_addr = seq[idx+2] << 2
 
@@ -314,7 +316,9 @@ class waveform:
             start_addr = extended_seq[idx] << 3
             end_addr = start_addr+(extended_seq[idx+1] << 3)
             count = extended_seq[idx+2]
-            level = extended_seq[idx]
+
+            # level = extended_seq[idx] #老版本
+            level = (extended_seq[idx+3] >> 8) & 0x03
             # mode = (u'直接输出', u'一级循环开始', u'二级循环开始', u'三级循环开始', u'四级循环开始', u'一级循环结束', u'二级循环结束',u'三级循环结束', u'四级循环结束','触发输出',u'计数输出',u'态判断输出' )
             # print(func, start_addr, end_addr)
             level_label_loop = [u'一级循环开始', u'二级循环开始', u'三级循环开始', u'四级循环开始']
@@ -334,7 +338,8 @@ class waveform:
                 wave += unit
                 seq_mode += [mode.index('直接输出')]*len(unit)
             elif func == 4:#counter
-                unit = [default_volt]*((count+2) << 3)#固定开销8ns
+                # unit = [default_volt]*((count+2) << 3)#老版本，固定开销8ns
+                unit = [default_volt]*((count) << 3)#新版本固定开销0ns
                 unit += self.wave[start_addr:end_addr]
                 # unit1 = np.asarray(unit)+65536
                 # unit = unit1.astype(np.int32)
@@ -345,8 +350,8 @@ class waveform:
             elif func == 12:#state condition
                 start_addr = (count & 0x00FF) << 9 #低5位地址为0 #0态的地址
                 end_addr = start_addr+(extended_seq[idx+1] << 3)
-                unit = [default_volt]*24 ##固定开销12ns
-                unit += self.wave[start_addr:end_addr]
+                # unit = [default_volt]*24 ##固定开销12ns
+                unit = self.wave[start_addr:end_addr]
                 # unit1 = np.asarray(unit)+65536*2
                 # unit = unit1.astype(np.int32)
                 # unit = list(unit)
@@ -354,18 +359,23 @@ class waveform:
                 seq_mode += [mode.index('态判断输出')]*len(unit)
             elif func == 1:#固定开销16ns
                 # unit = [65535] + [70000]*30 + [65535]
-                unit = [default_volt]*32
+                unit = self.wave[start_addr:end_addr]
+                # unit = [default_volt]*32
                 wave += unit
                 seq_mode += [mode.index(level_label_loop[level])]*len(unit)
 
             elif func == 2:#固定开销16ns
                 # unit = [0]+[65535-70000]*30 + [0]
-                unit = [default_volt]*32
+                unit = self.wave[start_addr:end_addr]
+                # unit = [default_volt]*32
                 wave += unit
                 seq_mode += [mode.index(level_label_jump[level])]*len(unit)
             if end_addr > len(self.wave):
                 print('end addr:{0}, wave length:{1}'.format(end_addr,len(self.wave)))
                 print('波形有越界，实际输出可能有未知波形数据')
+
+            if extended_seq[idx+1] < 4 :
+                print('错误：波形长度小于4，不支持')
 
             if stop == 1:
                 break
