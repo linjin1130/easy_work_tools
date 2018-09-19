@@ -346,6 +346,14 @@ class DABoard(object):
         self.Run_Command(self.board_def.CTRL_SYNC_CTRL,18,data<<16)
     def MultiBoardMode(self,data):#1:single board mode 0: multi board mode
         self.Run_Command(self.board_def.CTRL_SYNC_CTRL,19,data<<16)
+    def SwitchTrigMode(self,ch):
+        ## 设置到AD板的触发源
+        ## 0 触发模块
+        ## 1 序列通道1
+        ## 2 序列通道2
+        ## 3 序列通道3
+        ## 4 序列通道4
+        self.Run_Command(self.board_def.CTRL_SYNC_CTRL,20,ch << 16)
     def setDAADPLLDelay(self, cnt):
         # da sync方式为移动pll相位
         # cnt = 0 增加相位

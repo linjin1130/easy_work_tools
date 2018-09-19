@@ -15,7 +15,7 @@ import matplotlib as mpl
 # mpl.rcParams['axes.unicode_minus']=False
 
 mode = (u'直接输出', u'一级循环开始', u'一级循环结束', u'二级循环开始', u'二级循环结束', u'三级循环开始',u'三级循环结束', u'四级循环开始', u'四级循环结束','触发输出',u'计数输出',u'态判断输出',u'')
-def print_csv(x_list, unit, listv, listv1, dirname,note, filename, outdir):
+def print_csv(x_list, unit, listv, listv1, listv2, dirname,note, filename, outdir):
     global mode
     y_pos = np.arange(len(mode))
     x_pos = np.arange(len(x_list))
@@ -25,6 +25,7 @@ def print_csv(x_list, unit, listv, listv1, dirname,note, filename, outdir):
 
     par1 = host.twinx()
     par1.grid()
+    host.plot(range(0, len(listv2)), listv2, 'g*', label=u'码值')
     p1, = host.plot(range(0, len(listv)), listv, 'b-', label=u'码值')
     # p3, = host.plot(range(0, len(listv)), listv, 'g-', label=u'物理值2')
     p2, = par1.plot(range(0, len(listv1)), listv1, 'r.', label=u'序列类型')
@@ -40,17 +41,23 @@ def print_csv(x_list, unit, listv, listv1, dirname,note, filename, outdir):
 
     plt.yticks(y_pos, mode, rotation=0, fontsize='small')
 
-    # nn = x_pos[::int(len(x_list) / 10)]
-    # xx = []
-    # for ii in nn:
-    #     xx.append(x_list[ii][2:16])
-    # plt.xticks(nn, xx, rotation=15)
+    nn = x_pos[::int(len(x_list) / 10)]
+    xx = []
+    for ii in nn:
+        xx.append(str(x_list[ii])+unit)
+    xx.append(str(x_list[-1])+unit)
+    tt = list(nn)
+    tt.append(x_pos[-1])
+    # tt=np.append(nn,[x_pos[-1]])
+    print(tt)
+    plt.xticks(tt, xx, rotation=15)
+
     ss = filename
     if ss.find('-') > -1:
         host.set_xlabel(ss[:ss.find('-')])
     else:
         host.set_xlabel(ss)
-    host.set_ylabel(u'码值' + unit)
+    host.set_ylabel(u'码值')
     par1.set_ylabel(u'序列类型')
 
     host.yaxis.label.set_color(p1.get_color())
@@ -291,9 +298,17 @@ class waveform:
         extended_seq += seq[loop_end_addr:]
         # rt_seq = extended_seq.copy()
         return extended_seq, has_level
+    def get_wave_trig_pos(self, trig_delay, wave_length):
+        ## 返回触发序列输出的触发的位置
+        if trig_delay < 0 or trig_delay > 255:
+            print('延时值越界:{}'.format(0))
+            os.error('延时值越界:{}'.format(0))
+        trig_pos = (trig_delay - 45) * 8
+        return wave_length + trig_pos
     def wave_preview(self, test_note=' '):
         '''预览序列对象生成的波形'''
         wave = []
+        trig_pos_list = []
         seq_mode = []
         default_volt = 32768
         pro_level = 3
@@ -316,18 +331,25 @@ class waveform:
             start_addr = extended_seq[idx] << 3
             end_addr = start_addr+(extended_seq[idx+1] << 3)
             count = extended_seq[idx+2]
-
+            istrig_seq = (extended_seq[idx+3] >> 10) & 0x0001
+            trig_delay = (extended_seq[idx+3]) & 0x00FF
             # level = extended_seq[idx] #老版本
             level = (extended_seq[idx+3] >> 8) & 0x03
             # mode = (u'直接输出', u'一级循环开始', u'二级循环开始', u'三级循环开始', u'四级循环开始', u'一级循环结束', u'二级循环结束',u'三级循环结束', u'四级循环结束','触发输出',u'计数输出',u'态判断输出' )
             # print(func, start_addr, end_addr)
             level_label_loop = [u'一级循环开始', u'二级循环开始', u'三级循环开始', u'四级循环开始']
             level_label_jump = [u'一级循环结束', u'二级循环结束',u'三级循环结束', u'四级循环结束']
+
+            ## 如果是序列有触发标识，添加触发信号的位置
+            if istrig_seq == 1:
+                trig_pos_list.append(self.get_wave_trig_pos(trig_delay, len(wave)))
+
             if func == 8:#trig
                 #触发用等长的波形长度模拟，中间1个点用70000表示触发
-                unit = [default_volt]*(extended_seq[idx+1] << 1)+[70000]+[default_volt]*(extended_seq[idx+1] << 1)
-                unit += self.wave[start_addr:end_addr]
-                unit = unit*(count+1)#重复很多次
+                # unit = [default_volt]*(extended_seq[idx+1] << 1)+[70000]+[default_volt]*(extended_seq[idx+1] << 1)
+                # trig_pos = len(unit)
+                unit = self.wave[start_addr:end_addr]
+                # unit = unit*(count+1)#重复很多次 新版本不支持该功能了
                 wave += unit
                 seq_mode += [mode.index('触发输出')]*len(unit)
             elif func == 0:#seri
@@ -363,7 +385,6 @@ class waveform:
                 # unit = [default_volt]*32
                 wave += unit
                 seq_mode += [mode.index(level_label_loop[level])]*len(unit)
-
             elif func == 2:#固定开销16ns
                 # unit = [0]+[65535-70000]*30 + [0]
                 unit = self.wave[start_addr:end_addr]
@@ -382,11 +403,24 @@ class waveform:
             if len(wave) > 1000000:
                 print('生成wave过长')
                 break
-        xlist = np.arange(0,len(seq_mode))
+        wave_trig = [0]*len(wave)
+        for idx in trig_pos_list:
+            if idx < 0:
+                print('警告，触发位置超波形边界:{}ns'.format(idx*0.5))
+                idx = 0
+            elif idx > len(wave):
+                print('警告，触发位置超波形边界:{}ns'.format(idx*0.5))
+                idx = -1
+            print('触发时刻:{}ns'.format(idx*0.5))
+            wave_trig[idx] = 70000
+        xlist = np.arange(0,len(seq_mode) >> 1)
+        xlist = xlist.repeat(2)
+        # xlist.sort()
         dir = os.getcwd()+'/测试数据'
         filename = '序列数据生成波形预览'+test_note#+'-'+time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(time.time()))
         note = self.get_loop_mode()
-        print_csv(xlist,'',wave,seq_mode,dir,note,filename,dir)
+        # print(len(xlist), len(wave))
+        print_csv(xlist,'ns',wave,seq_mode,wave_trig, dir,note,filename,dir)
         return len(wave), wave
 
     def gen_comp_wave(self, counter=10, length=(512>>3)):
