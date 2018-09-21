@@ -314,96 +314,57 @@ class waveform:
         pro_level = 3
         temp_seq = self.seq
         extended_seq = None
+
+        ## 将序列的4级循环展开
         while pro_level >= 0 :
             extended_seq, has_level = self.seq_extend(temp_seq, pro_level)
-            # print('处理级别{}'.format(pro_level))
             pro_level -= 1
             temp_seq = extended_seq
-            # print(extended_seq)
-            # print(has_level)
-            # if has_level == 0:
-            #     break
-
+        # 对展开后的序列生成对应的波形，模式，触发序列
         for seq_idx in range(len(extended_seq) >> 2):
-            idx = seq_idx << 2
-            stop = extended_seq[idx+3] >> 15
-            func = (extended_seq[idx+3] >> 11) & 0x000F
-            start_addr = extended_seq[idx] << 3
-            end_addr = start_addr+(extended_seq[idx+1] << 3)
-            count = extended_seq[idx+2]
-            istrig_seq = (extended_seq[idx+3] >> 10) & 0x0001
-            trig_delay = (extended_seq[idx+3]) & 0x00FF
-            # level = extended_seq[idx] #老版本
-            level = (extended_seq[idx+3] >> 8) & 0x03
+            idx = seq_idx << 2 # 序列索引
+            stop = extended_seq[idx+3] >> 15 #序列停止标识
+            func = (extended_seq[idx+3] >> 11) & 0x000F # 序列类型
+            start_addr = extended_seq[idx] << 3 #波形区起始地址
+            wave_len = extended_seq[idx+1] << 3## 波形采样点数
+            end_addr = start_addr+wave_len #波形区结束地址
+            count = extended_seq[idx+2] #多功能计数区
+            istrig_seq = (extended_seq[idx+3] >> 10) & 0x0001 #序列触发输出标识
+            trig_delay = (extended_seq[idx+3]) & 0x00FF #触发序列的延时计数
+            level = (extended_seq[idx+3] >> 8) & 0x03 #循环级别
             # mode = (u'直接输出', u'一级循环开始', u'二级循环开始', u'三级循环开始', u'四级循环开始', u'一级循环结束', u'二级循环结束',u'三级循环结束', u'四级循环结束','触发输出',u'计数输出',u'态判断输出' )
-            # print(func, start_addr, end_addr)
             level_label_loop = [u'一级循环开始', u'二级循环开始', u'三级循环开始', u'四级循环开始']
             level_label_jump = [u'一级循环结束', u'二级循环结束',u'三级循环结束', u'四级循环结束']
+            func_dic = {0:['直接输出'], 8:['触发输出'],4:['计数输出'],12:['态判断输出'],1:level_label_loop,2:level_label_jump}
+            if func_dic[func][0] ==  '态判断输出':
+                start_addr = (count & 0x00FF) << 9 #低5位地址为0 #0态的地址 ## 取0态的地址
+                end_addr = start_addr+wave_len #波形区结束地址
 
             ## 如果是序列有触发标识，添加触发信号的位置
             if istrig_seq == 1:
                 trig_pos_list.append(self.get_wave_trig_pos(trig_delay, len(wave)))
+            unit = []
+            if func == 4:#计数类型延时
+                unit = [default_volt]*((count) << 3)#延时
+            unit += self.wave[start_addr:end_addr]
+            wave += unit
+            seq_mode += [mode.index(func_dic[func][level])]*len(unit)
 
-            if func == 8:#trig
-                #触发用等长的波形长度模拟，中间1个点用70000表示触发
-                # unit = [default_volt]*(extended_seq[idx+1] << 1)+[70000]+[default_volt]*(extended_seq[idx+1] << 1)
-                # trig_pos = len(unit)
-                unit = self.wave[start_addr:end_addr]
-                # unit = unit*(count+1)#重复很多次 新版本不支持该功能了
-                wave += unit
-                seq_mode += [mode.index('触发输出')]*len(unit)
-            elif func == 0:#seri
-                unit = self.wave[start_addr:end_addr]
-                # unit1 = np.asarray(unit)+65536*3
-                # unit = unit1.astype(np.int32)
-                # unit = list(unit)
-                wave += unit
-                seq_mode += [mode.index('直接输出')]*len(unit)
-            elif func == 4:#counter
-                # unit = [default_volt]*((count+2) << 3)#老版本，固定开销8ns
-                unit = [default_volt]*((count) << 3)#新版本固定开销0ns
-                unit += self.wave[start_addr:end_addr]
-                # unit1 = np.asarray(unit)+65536
-                # unit = unit1.astype(np.int32)
-                # unit = list(unit)
-                # print(unit1)
-                wave += unit
-                seq_mode += [mode.index('计数输出')]*len(unit)
-            elif func == 12:#state condition
-                start_addr = (count & 0x00FF) << 9 #低5位地址为0 #0态的地址
-                end_addr = start_addr+(extended_seq[idx+1] << 3)
-                # unit = [default_volt]*24 ##固定开销12ns
-                unit = self.wave[start_addr:end_addr]
-                # unit1 = np.asarray(unit)+65536*2
-                # unit = unit1.astype(np.int32)
-                # unit = list(unit)
-                wave += unit
-                seq_mode += [mode.index('态判断输出')]*len(unit)
-            elif func == 1:#固定开销16ns
-                # unit = [65535] + [70000]*30 + [65535]
-                unit = self.wave[start_addr:end_addr]
-                # unit = [default_volt]*32
-                wave += unit
-                seq_mode += [mode.index(level_label_loop[level])]*len(unit)
-            elif func == 2:#固定开销16ns
-                # unit = [0]+[65535-70000]*30 + [0]
-                unit = self.wave[start_addr:end_addr]
-                # unit = [default_volt]*32
-                wave += unit
-                seq_mode += [mode.index(level_label_jump[level])]*len(unit)
             if end_addr > len(self.wave):
                 print('end addr:{0}, wave length:{1}'.format(end_addr,len(self.wave)))
-                print('波形有越界，实际输出可能有未知波形数据')
+                print('波形有越界，实际输出可能有未知波形数据:{}'.format(extended_seq[idx:idx+4]))
 
-            if extended_seq[idx+1] < 4 :
-                print('错误：波形长度小于4，不支持')
+            if wave_len < 4 :
+                os.error('错误：波形长度小于4，不支持')
 
             if stop == 1:
                 break
             if len(wave) > 1000000:
                 print('生成wave过长')
                 break
+        ## 根据触发位置list生成触发序列
         wave_trig = [0]*len(wave)
+        trig_time = []
         for idx in trig_pos_list:
             if idx < 0:
                 print('警告，触发位置超波形边界:{}ns'.format(idx*0.5))
@@ -412,6 +373,7 @@ class waveform:
                 print('警告，触发位置超波形边界:{}ns'.format(idx*0.5))
                 idx = -1
             print('触发时刻:{}ns'.format(idx*0.5))
+            trig_time.append(idx*0.5)
             wave_trig[idx] = 70000
         xlist = np.arange(0,len(seq_mode) >> 1)
         xlist = xlist.repeat(2)
@@ -421,7 +383,7 @@ class waveform:
         note = self.get_loop_mode()
         # print(len(xlist), len(wave))
         print_csv(xlist,'ns',wave,seq_mode,wave_trig, dir,note,filename,dir)
-        return len(wave), wave
+        return len(wave), wave, trig_time
 
     def gen_comp_wave(self, counter=10, length=(512>>3)):
         '''产生复杂波形， 第一区间是正弦长度512，第二区间是方波，长度512，第三区间是三角波，长度512
