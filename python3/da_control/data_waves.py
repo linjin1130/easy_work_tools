@@ -341,10 +341,10 @@ class waveform:
                 end_addr = start_addr+wave_len #波形区结束地址
 
             ## 如果是序列有触发标识，添加触发信号的位置
-            if istrig_seq == 1:
+            if istrig_seq == 1 or func_dic[func][0] ==  '触发输出':
                 trig_pos_list.append(self.get_wave_trig_pos(trig_delay, len(wave)))
             unit = []
-            if func == 4:#计数类型延时
+            if func_dic[func][0] ==  '计数输出' or func_dic[func][0] ==  '触发输出':#计数类型延时
                 unit = [default_volt]*((count) << 3)#延时
             unit += self.wave[start_addr:end_addr]
             wave += unit

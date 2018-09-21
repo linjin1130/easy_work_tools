@@ -32,6 +32,7 @@ class DABoard(object):
         # Create a TCP/IP socket
         self.sockfd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sockfd.settimeout(5.0)
+        self.soft_version = None
 
     def connect(self, addr):
         """Connect to Server"""
@@ -41,6 +42,8 @@ class DABoard(object):
         try:
             self.sockfd.connect((host, self.port))
             print ('connected')
+            rcv_data = self.Read_RAM(0x80000000, 1024)
+            self.soft_version = [int(rcv_data[718]),int(rcv_data[717]),int(rcv_data[716])]
             return 1
         except socket.error as msg:
             self.sockfd.close()
@@ -48,6 +51,7 @@ class DABoard(object):
         if self.sockfd is None:
             print ('ERROR:Could not open socket')
             return -1
+
 
     def disconnect(self):
         """Close the connection to the server."""
