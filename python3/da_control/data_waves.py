@@ -45,12 +45,15 @@ def print_csv(x_list, unit, listv, listv1, listv2, dirname,note, filename, outdi
     xx = []
     for ii in nn:
         xx.append(str(x_list[ii])+unit)
-    xx.append(str(x_list[-1])+unit)
     tt = list(nn)
-    tt.append(x_pos[-1])
+    if (x_pos[-1]-nn[-1]) / nn[1] > 0.49:##最后一个标识不能太近
+        xx.append(str(x_list[-1])+unit)
+        tt.append(x_pos[-1])
+    # else:
+    #     print(x_pos[-1]-nn[-1], )
     # tt=np.append(nn,[x_pos[-1]])
     print(tt)
-    plt.xticks(tt, xx, rotation=15)
+    plt.xticks(tt, xx, rotation=60)
 
     ss = filename
     if ss.find('-') > -1:
@@ -241,6 +244,26 @@ class waveform:
                 break
         return loop_mode
 
+    def get_seq_level_order(self, seq):
+        #获取 seq中的循环等级嵌套关系
+        max_cnt_dic = {0:0,1:0,2:0,3:0}
+        loop_level = 0
+        for seq_idx in range(len(seq) >> 2):
+            idx = seq_idx << 2
+            stop = (seq[idx+3] >> 15) & 0x00001
+            func = (seq[idx+3] >> 11) & 0x000F
+            level = (seq[idx+3] >> 8) & 0x03
+
+            if func == 1:#loop start
+                loop_level += 1
+                max_cnt_dic[level] = max( max_cnt_dic[level],loop_level)
+            if func == 2:#loop end or jump
+                loop_level -= 1
+            if stop == 1:
+                break
+        list1= sorted(max_cnt_dic.items(),key=lambda x:x[1], reverse=True)
+        return [item[0] for item in list1]
+
     def seq_extend(self, seq, pro_level):
         extended_seq = []
         loop_start_addr = 0
@@ -298,12 +321,12 @@ class waveform:
         extended_seq += seq[loop_end_addr:]
         # rt_seq = extended_seq.copy()
         return extended_seq, has_level
-    def get_wave_trig_pos(self, trig_delay, wave_length):
+    def get_wave_trig_pos(self, trig_delay, wave_length, count):
         ## 返回触发序列输出的触发的位置
         if trig_delay < 0 or trig_delay > 255:
             print('延时值越界:{}'.format(0))
             os.error('延时值越界:{}'.format(0))
-        trig_pos = (trig_delay - 45) * 8
+        trig_pos = (count + trig_delay - 45) * 8
         return wave_length + trig_pos
     def wave_preview(self, test_note=' '):
         '''预览序列对象生成的波形'''
@@ -316,9 +339,14 @@ class waveform:
         extended_seq = None
 
         ## 将序列的4级循环展开
-        while pro_level >= 0 :
+        ### 获取循环嵌套关系
+        loop_order = self.get_seq_level_order(temp_seq)
+        # while pro_level >= 0 :
+        print('循环嵌套关系：{}'.format(loop_order))
+        for pro_level in loop_order:
             extended_seq, has_level = self.seq_extend(temp_seq, pro_level)
-            pro_level -= 1
+            # pro_level -= 1
+            # print(self.get_loop_mode())
             temp_seq = extended_seq
         # 对展开后的序列生成对应的波形，模式，触发序列
         for seq_idx in range(len(extended_seq) >> 2):
@@ -342,7 +370,10 @@ class waveform:
 
             ## 如果是序列有触发标识，添加触发信号的位置
             if istrig_seq == 1 or func_dic[func][0] ==  '触发输出':
-                trig_pos_list.append(self.get_wave_trig_pos(trig_delay, len(wave)))
+                pos_cnt = 0
+                if func_dic[func][0] ==  '计数输出':
+                    pos_cnt = count
+                trig_pos_list.append(self.get_wave_trig_pos(trig_delay, len(wave), pos_cnt))
             unit = []
             if func_dic[func][0] ==  '计数输出' or func_dic[func][0] ==  '触发输出':#计数类型延时
                 unit = [default_volt]*((count) << 3)#延时
@@ -365,6 +396,7 @@ class waveform:
         ## 根据触发位置list生成触发序列
         wave_trig = [0]*len(wave)
         trig_time = []
+        pre_time = trig_pos_list[0]
         for idx in trig_pos_list:
             if idx < 0:
                 print('警告，触发位置超波形边界:{}ns'.format(idx*0.5))
@@ -373,7 +405,12 @@ class waveform:
                 print('警告，触发位置超波形边界:{}ns'.format(idx*0.5))
                 idx = -1
             print('触发时刻:{}ns'.format(idx*0.5))
-            trig_time.append(idx*0.5)
+            if idx - pre_time < 41 and idx != pre_time:
+                ## 触发脉冲宽度为20ns，当两个触发位置间隔小于41时，存在重叠现象
+                print('注意：有触发重叠现象')
+            else:
+                trig_time.append(idx*0.5)
+            pre_time = idx
             wave_trig[idx] = 70000
         xlist = np.arange(0,len(seq_mode) >> 1)
         xlist = xlist.repeat(2)
@@ -420,3 +457,10 @@ class waveform:
 # import matplotlib.pyplot as plt
 # plt.plot(aa.wave)
 # plt.show()
+
+# wa = waveform()
+# wa.seq = [0, 16, 0, 17453, 257, 4, 257, 24576, 0, 4, 3, 2304, 257, 4, 257, 25645, 0, 4, 2, 2560, 0, 4, 3, 4608, 0, 4, 3, 2816, 16, 4, 20, 9264, 0, 16, 0, 8192, 0, 4, 0, 1072, 16, 16, 0, 0, 0, 4, 8, 4864, 257, 4, 257, 24576, 257, 4, 257, 25645, 0, 4, 3, 2816, 0, 4, 2, 4352, 0, 4, 9, 4864, 0, 16, 0, 32768, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+# print()
+# wa.wave_preview()
+
+## 0[1{}<2345>678]9
