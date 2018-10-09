@@ -86,7 +86,7 @@ def read_flash(da, flash_addr, target_file_name, filesize):
     target_file.write(data1)
     target_file.close()
 
-def da_config_flash(new_ip, source_file_name):
+def da_config_flash(new_ip, source_file_name, erase=True, is_old_version=False):
     da = DABoard()
     board_status = da.connect(new_ip)
     if(board_status != 1):
@@ -110,18 +110,34 @@ def da_config_flash(new_ip, source_file_name):
         reset_time = 65000
         print('可靠配置，首先设置看门狗计数，禁止喂狗，重配置超时时间：{0}秒，重复位超时时间：{1}秒'.format(reprog_time/100.0, reset_time/100.0))
         da.Set_watchdog_timeout(reprog_timeout=reprog_time, reset_timeout=reset_time)
-        print('SPANSION FLASH 第一个block用块擦除的方式无法擦除，临时的办法是整个FLASH擦除')
-        da.EraseFlashEntire()
+
+        if erase:
+            print('SPANSION FLASH 第一个block用块擦除的方式无法擦除，临时的办法是整个FLASH擦除')
+            da.EraseFlashEntire()
+        else:
+            print('这是一块新FLASH，不用擦除')
         write_flash(da, source_data, flash_addr, 0)
+    elif is_old_version:
+        print('可靠配置，首先设置看门狗计数，禁止喂狗，重配置超时时间：{0}，重复位超时时间：{1}'.format(reprog_time, reset_time))
+        da.Set_watchdog_timeout(reprog_timeout=reprog_time, reset_timeout=reset_time)
+        if erase:
+            print('擦除')
+            erease_flash(da, flash_addr + block_size, filesize + block_size)
+        print('老版本远程配置，配置所有数据')
+        if flash_addr == 0:
+            da.WriteGoldenFLASH_old(source_data+source_data[-256:])
+        else:
+            da.WriteFLASH_old(source_data+source_data[-256:])
     else:
         print('可靠配置，首先设置看门狗计数，禁止喂狗，重配置超时时间：{0}，重复位超时时间：{1}'.format(reprog_time, reset_time))
         da.Set_watchdog_timeout(reprog_timeout=reprog_time, reset_timeout=reset_time)
         print(' 写入前面256字节数据到软核数据缓冲区')
         write_flash(da, source_data[0:256], flash_addr, 1)
         print('根据FLASH特性，先擦除除第一个block外的所有block，最后再擦除第一个block')
-        print('擦除其他block')
-        erease_flash(da,flash_addr+block_size, filesize+block_size)
-        print('擦除第一个block, 该条命令，因为只擦1个block，自动将第一页数据写入FLASH')
+        if erase:
+            print('擦除其他block')
+            erease_flash(da,flash_addr+block_size, filesize+block_size)
+        print('新版本配置，擦除第一个block, 该条命令，因为只擦1个block，自动将第一页数据写入FLASH')
         erease_flash(da,flash_addr, block_size)
         print('配置剩余所有数据')
         write_flash(da, source_data[256:], flash_addr+256, 0)

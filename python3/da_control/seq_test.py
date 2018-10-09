@@ -55,6 +55,7 @@ def gen_func_list():
 
 def gen_cmd_no_loop(funcs):
     ## 生成无循环的序列指令
+    seq_cmds = []
     logger.info('排列组合类型：{}取1'.format(len(funcs)))
     for idxs in itertools.permutations(range(len(funcs)), 1):
         seqs = []
@@ -62,7 +63,7 @@ def gen_cmd_no_loop(funcs):
         for idx in idxs:
             seqs += [get_addr(funcs[idx][2]), get_length(), get_count(funcs[idx][2], funcs[idx][1]), funcs[idx][0]|get_seq_trig()]
         seqs[-1] |= 0x8000
-        yield seqs
+        seq_cmds.append([seqs])
     logger.info('排列组合类型：{}取{}'.format(len(funcs),len(funcs)))
     for idxs in itertools.permutations(range(len(funcs)), len(funcs)):
         seqs = []
@@ -70,7 +71,7 @@ def gen_cmd_no_loop(funcs):
         for idx in idxs:
             seqs += [get_addr(funcs[idx][2]), get_length(), get_count(funcs[idx][2], funcs[idx][1]), funcs[idx][0]|get_seq_trig()]
         seqs[-1] |= 0x8000
-        yield seqs
+        seq_cmds.append([seqs])
     loop_seq = []
     logger.info('排列组合类型：{}取{},取出后*2'.format(len(funcs),len(funcs)))
     for idxs in itertools.permutations(range(len(funcs)), len(funcs)):
@@ -81,10 +82,10 @@ def gen_cmd_no_loop(funcs):
             seqs += [get_addr(funcs[idx][2]), get_length(), get_count(funcs[idx][2], funcs[idx][1]), funcs[idx][0]|get_seq_trig()]
         loop_seq = seqs.copy()
         seqs[-1] |= 0x8000
-        yield seqs
+        seq_cmds.append([seqs])
     loop_seq = loop_seq+loop_seq[4:] ##不要第一个含触发的序列
     loop_seq[-1] |= 0x8000
-    yield loop_seq
+    return seq_cmds, loop_seq
 funcs = gen_func_list()
 gen_cmd = gen_cmd_no_loop(funcs)
 
@@ -157,6 +158,9 @@ def get_loop_mode():
     seq_flag_list = 'SSDDCCSDCSDC'
     seq_flag_list = '0123456789'
     list = [i for i in range(len(seq_flag_list))]
+
+    seq_mod_set = []
+
     for item in set(new_rs):
         logger.debug('get_loop_mode中的括号模式：{}'.format(item))
         ## 生成要插入的位置
@@ -187,8 +191,9 @@ def get_loop_mode():
             pre_pos = pos
         out += item[pre_pos:]
         logger.debug('get_loop_mode中的模式：{}'.format(out))
-        yield out
-
+        # yield out
+        seq_mod_set.append(out)
+    return seq_mod_set
 addr = 0
 length = 4
 ctrl = 0x1 << 11

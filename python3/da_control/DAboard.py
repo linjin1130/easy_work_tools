@@ -408,6 +408,67 @@ class DABoard(object):
         startaddr = (ch-1)<<19             #波形数据的内存起始地址，单位是字节。
         self.Write_RAM(startaddr, wave)
 
+    def WriteFLASH_old(self, data):
+        """Write to data to flash old version."""
+        print('program flash start')
+        start_addr = 9 << 18
+        cmd = self.board_def.CMD_WRITE_MEM
+        pad = 0xFFFFFF
+        #I need to pack bank into 4 bytes and then only use the 3
+        packedPad = struct.pack("L", pad)
+        unpackedPad = struct.unpack('4b', packedPad)
+        length = len(data)
+        packet = struct.pack("4bLL", cmd, unpackedPad[0], unpackedPad[1], unpackedPad[2], start_addr, length)
+        #Next I need to send the command
+        self.send_data(packet)
+        #next read from the socket
+        recv_stat, recv_data = self.receive_data()
+        if recv_stat != 0x0:
+            print ('Ram Write cmd Error stat={}!!!'.format(recv_stat))
+            return self.board_def.STAT_ERROR
+
+        self.send_data(data)
+        #next read from the socket to ensure no errors occur
+        self.sockfd.settimeout(1000);
+        stat, data = self.receive_data()
+        self.sockfd.settimeout(5)
+        # print(packet)
+
+        print('program flash end')
+        if stat != 0x0:
+            print ('Ram Write Error stat={}!!!'.format(stat))
+            return self.board_def.STAT_ERROR
+    def WriteGoldenFLASH_old(self, data):
+        """Write to RAM command."""
+        print('program flash start')
+        start_addr = 10 << 18
+        cmd = self.board_def.CMD_WRITE_MEM
+        pad = 0xFFFFFF
+        #I need to pack bank into 4 bytes and then only use the 3
+        packedPad = struct.pack("L", pad)
+        unpackedPad = struct.unpack('4b', packedPad)
+        length = len(data)
+        packet = struct.pack("4bLL", cmd, unpackedPad[0], unpackedPad[1], unpackedPad[2], start_addr, length)
+        #Next I need to send the command
+        self.send_data(packet)
+        #next read from the socket
+        recv_stat, recv_data = self.receive_data()
+        if recv_stat != 0x0:
+            print ('Ram Write cmd Error stat={}!!!'.format(recv_stat))
+            return self.board_def.STAT_ERROR
+
+        self.send_data(data)
+        #next read from the socket to ensure no errors occur
+        self.sockfd.settimeout(1000);
+        stat, data = self.receive_data()
+        self.sockfd.settimeout(5)
+        # print(packet)
+
+        print('program flash end')
+        if stat != 0x0:
+            print ('Ram Write Error stat={}!!!'.format(stat))
+            return self.board_def.STAT_ERROR
+
     def WriteFLASH(self, data, config_addr, is_first_page):
         """Write to FLASH command.
             data 待写入数据

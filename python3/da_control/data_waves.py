@@ -52,7 +52,7 @@ def print_csv(x_list, unit, listv, listv1, listv2, dirname,note, filename, outdi
     # else:
     #     print(x_pos[-1]-nn[-1], )
     # tt=np.append(nn,[x_pos[-1]])
-    print(tt)
+    # print(tt)
     plt.xticks(tt, xx, rotation=60)
 
     ss = filename
@@ -396,28 +396,33 @@ class waveform:
         ## 根据触发位置list生成触发序列
         wave_trig = [0]*len(wave)
         trig_time = []
-        pre_time = trig_pos_list[0]
-        for idx in trig_pos_list:
-            if idx < 0:
-                print('警告，触发位置超波形边界:{}ns'.format(idx*0.5))
-                idx = 0
-            elif idx > len(wave):
-                print('警告，触发位置超波形边界:{}ns'.format(idx*0.5))
-                idx = -1
-            print('触发时刻:{}ns'.format(idx*0.5))
-            if idx - pre_time < 41 and idx != pre_time:
-                ## 触发脉冲宽度为20ns，当两个触发位置间隔小于41时，存在重叠现象
-                print('注意：有触发重叠现象')
-            else:
-                trig_time.append(idx*0.5)
-            pre_time = idx
-            wave_trig[idx] = 70000
-        xlist = np.arange(0,len(seq_mode) >> 1)
+        note = '连续波形输出'
+        if len(trig_pos_list) > 0:
+            pre_time = trig_pos_list[0]
+            for idx in trig_pos_list:
+                if idx < 0:
+                    print('警告，触发位置超波形边界:{}ns'.format(idx*0.5))
+                    idx = 0
+                elif idx > len(wave):
+                    print('警告，触发位置超波形边界:{}ns'.format(idx*0.5))
+                    idx = -1
+                print('触发时刻:{}ns'.format(idx*0.5))
+                if idx - pre_time < 41 and idx != pre_time:
+                    ## 触发脉冲宽度为20ns，当两个触发位置间隔小于41时，存在重叠现象
+                    print('注意：有触发重叠现象')
+                else:
+                    trig_time.append(idx*0.5)
+                pre_time = idx
+                wave_trig[idx] = 70000
+            note = self.get_loop_mode()
+        # else:
+        #     seq_mode = '连续波形'
+        xlist = np.arange(0,len(wave) >> 1)
         xlist = xlist.repeat(2)
         # xlist.sort()
         dir = os.getcwd()+'/测试数据'
         filename = '序列数据生成波形预览'+test_note#+'-'+time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(time.time()))
-        note = self.get_loop_mode()
+
         # print(len(xlist), len(wave))
         print_csv(xlist,'ns',wave,seq_mode,wave_trig, dir,note,filename,dir)
         return len(wave), wave, trig_time
