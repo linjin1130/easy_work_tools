@@ -47,9 +47,12 @@ def config_para_check(da, file_flash_type, update_file, golden_file):
     config_info_valid = 0
     # print(flash_type )
     # if flash_type == da.board_def.MICRON_FLASH and source_file_name.find('_M_'):
+    flash_type_str = '错误'
     if flash_type == file_flash_type:
         config_info_valid = 1
         print('flash type correct')
+    else:
+        return config_info_valid, flash_type_str
 
     config_info_valid += update_file + golden_file
     if flash_type == da.board_def.MICRON_FLASH:
@@ -101,8 +104,8 @@ def da_config_flash(new_ip, source_file_name, erase=True, is_old_version=False):
         return False
     print('配置信息：写入地址：{0:x}；FLASH类型：{1:s}'.format(flash_addr, flash_type_str))
     start_time = time.time()
-    reprog_time = 35000
-    reset_time = 30000
+    reprog_time = 65000
+    reset_time = 60000
 
     # print(golden_file,flash_addr, flash_type_str )
     if(golden_file == 1 and flash_addr == 0 and flash_type_str == 'SPANSION'):

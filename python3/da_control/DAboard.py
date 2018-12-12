@@ -1,6 +1,6 @@
 # 	FileName:DAboard.py
 # 	Author:LinJin
-# 	E-mail:18685029093@ustc.edu.cn
+# 	E-mail:18685029093@163.com
 # 	All right reserved @ LinJin.
 # 	Modified: 2018.2.18
 #   Description:The class of DAC
@@ -10,9 +10,7 @@ import time
 import sys
 
 from types import coroutine
-import DAboard_defines
-from DAboard_defines import DABoard_Defines
-from data_waves import waveform
+from .DAboard_defines import *
 import struct
 import math
 from itertools import repeat
@@ -20,6 +18,13 @@ from collections import Counter
 import asyncio
 
 class DABoard(object):
+    """
+        DA 板对象
+
+        实现与DA硬件的连接，
+
+        """
+
     def __init__(self):
         self.board_def  = DABoard_Defines()
         self.port       = 80
@@ -42,8 +47,8 @@ class DABoard(object):
         try:
             self.sockfd.connect((host, self.port))
             print ('connected')
-            rcv_data = self.Read_RAM(0x80000000, 1024)
-            self.soft_version = [int(rcv_data[718]),int(rcv_data[717]),int(rcv_data[716])]
+            # rcv_data = self.Read_RAM(0x80000000, 1024)
+            # self.soft_version = [int(rcv_data[718]),int(rcv_data[717]),int(rcv_data[716])]
             return 1
         except socket.error as msg:
             self.sockfd.close()
@@ -171,7 +176,9 @@ class DABoard(object):
         #     sent_data = sent_data + 1
 
         #next read from the socket to ensure no errors occur
+        self.sockfd.settimeout(20)
         stat, data = self.receive_data()
+        self.sockfd.settimeout(5)
         # print(packet)
         if stat != 0x0:
             print ('Ram Write Error stat={}!!!'.format(stat))
@@ -179,11 +186,13 @@ class DABoard(object):
 
     def Run_Command(self, ctrl, data0, data1):
         """Run command."""
+
         cmd = self.board_def.CMD_CTRL_CMD
         packedCtrl = struct.pack("l", ctrl)
         unpackedCtrl = struct.unpack('4b', packedCtrl)
         packet = struct.pack("4bLL", cmd, unpackedCtrl[0], unpackedCtrl[1], unpackedCtrl[2], data0, data1)
     #    print ('this is my cmd packet: {}'.format(repr(packet)))
+    #     print(ctrl, data0, data1)
         self.send_data(packet)
         stat, data = self.receive_data()
         if stat != 0x0:
@@ -193,6 +202,8 @@ class DABoard(object):
     def send_data(self, msg):
         """Send data over the socket."""
         totalsent = 0
+        # tt= struct.unpack('c'*len(msg), msg)
+        # print(tt)
         while totalsent < len(msg):
             sent = self.sockfd.send(msg)
             if sent == 0:
@@ -407,6 +418,23 @@ class DABoard(object):
             print('Wrong channel!')        #检查通道编号
         startaddr = (ch-1)<<19             #波形数据的内存起始地址，单位是字节。
         self.Write_RAM(startaddr, wave)
+
+    def update_DelayIP_reg(self):
+        ## 高精度延时模块寄存器寄存器值刷入状态包中
+        self.Run_Command(self.board_def.CTRL_UPDATE_DELAYIP_REG, 0, 0)
+
+    def DelayIP_write(self,addr, data):
+        ## 高精度延时模块寄存器写入
+        ## 地址范围0-15，每个地址4字节数据
+        data0 = addr | (1<<8)
+        self.Run_Command(self.board_def.CTRL_UPDATE_DELAYIP_REG, data0, data)
+
+    def DelayIP_read(self,addr):
+        ## 高精度延时模块寄存器读取
+        ## 地址范围0-15，每个地址4字节数据
+        data0 = addr | (2<<8)
+        reg_data = self.Run_Command(self.board_def.CTRL_UPDATE_DELAYIP_REG, data0, 0)
+        return reg_data
 
     def WriteFLASH_old(self, data):
         """Write to data to flash old version."""

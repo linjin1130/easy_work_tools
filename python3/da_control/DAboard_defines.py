@@ -41,7 +41,9 @@ class DABoard_Defines:
    CTRL_MONITOR              = 0x13
    CTRL_CMD_ADPT              = 0x21
    CTRL_JESD_DATA_IF_SY_STAT  = 0x22
-   CTRL_LAST                 = CTRL_JESD_DATA_IF_SY_STAT
+   CTRL_UPDATE_DELAYIP_REG   = 0x23
+   CTRL_DATA_AQUIRE          = 0x24
+   CTRL_LAST                 = CTRL_DATA_AQUIRE
    STAT_SUCCESS              = 0x0       
    STAT_ERROR                = 0x1       
    STAT_CMDERR               = 0x2       

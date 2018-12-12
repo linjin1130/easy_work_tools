@@ -407,12 +407,23 @@ class waveform:
                     print('警告，触发位置超波形边界:{}ns'.format(idx*0.5))
                     idx = -1
                 print('触发时刻:{}ns'.format(idx*0.5))
-                if idx - pre_time < 41 and idx != pre_time:
+                tmp_pre = idx
+                if idx - pre_time < -41:
+                    print('注意：有前一个序列触发时间大于当前触发序列时间现象')
+                    tmp = trig_time[-1]
+                    trig_time[-1] = idx*0.5
+                    trig_time.append(tmp)
+                    tmp_pre = tmp
+                elif idx - pre_time < 0:
+                    trig_time[-1] = idx * 0.5
+                    tmp_pre = idx * 0.5
+                    print('注意：有前一个序列触发时间大于当前触发序列时间现象, 且产生重叠')
+                elif idx - pre_time < 41 and idx != pre_time:
                     ## 触发脉冲宽度为20ns，当两个触发位置间隔小于41时，存在重叠现象
                     print('注意：有触发重叠现象')
                 else:
                     trig_time.append(idx*0.5)
-                pre_time = idx
+                pre_time = tmp_pre
                 wave_trig[idx] = 70000
             note = self.get_loop_mode()
         # else:

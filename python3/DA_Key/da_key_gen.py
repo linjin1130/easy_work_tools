@@ -41,16 +41,13 @@ work_dir = os.getcwd()#'F:\\PycharmProjects\\easy_work_tools\\python3\\DA_Key\\t
 da_board_list1 = ['C05', 'D13', 'D09', 'D17', 'D01']
 da_board_list2 = ['E09', 'E08', 'E30', 'E26', 'E31']
 da_board_list3 = ['E24','E14','E29','D21','C11','B08','B05','D16','E03','E32','E11','D15','E06']
-da_board_list4 = ['E10','C08','C03','E16','E17','E18','E19','D08','D02','E12','E13','C09','E07','D05','D06','E04']
+da_board_list4 = ['E10','D25','C03','E16','E17','E18','E19','D08','D02','E12','E13','C09','E07','D05','D06','E04']
+da_board_list4 = ['E10','D25','C03','E16','E17','E18','E19','D08','D02','E12','E13','C09','E07','D05','D06','E04']
 
+da_board_list5 = ['F100','F102','F103','F104','F115','F117','F12','F13','F18','F23','F24','F40','F45','F47','F49','F55','F66','F80','F89']
 #该列表表明想对哪几套系统生成参数配置文件
-F_list = []
-for i in range(5,253):
-    F_list.append('F'+str(i))
-da_brd_list = [F_list]
-
-
-
+da_brd_list = [da_board_list5]
+print(da_brd_list)
 def set_check(set1, set2):
     #检查两个列表是否有重复
     if len(set1 & set2) > 0:
