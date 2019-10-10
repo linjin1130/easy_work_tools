@@ -3,7 +3,7 @@ import filecmp
 
 import matplotlib.pyplot as plt
 da = DABoard()
-new_ip = '10.0.2.5'
+new_ip = '10.0.5.188'
 
 board_status = da.connect(new_ip)
 # da.Run_Command(26,0,0)
@@ -11,10 +11,10 @@ board_status = da.connect(new_ip)
 # da.InitBoard()
 da.SetIsMaster(1)
 da_ctrl = waveform()
-# da_ctrl.generate_seq()
+da_ctrl.generate_seq()
 da_ctrl.generate_sin(repeat=2048)
 
-da_ctrl.generate_trig_seq(loopcnt=1024)
+# da_ctrl.generate_trig_seq(loopcnt=1024)
 # print(len(da_ctrl.seq))
 # print(len(da_ctrl.wave))
 # print("wave")
@@ -40,7 +40,7 @@ for i in range(1000000):
     da.StartStop(240)
 
     da.SetTrigCount(10)
-    da.SendIntTrig()
+    # da.SendIntTrig()
     da.StartStop(15)
 
 da.StartStop(240)

@@ -10,7 +10,7 @@ import time
 import sys
 
 from types import coroutine
-from .DAboard_defines import *
+from DAboard_defines import *
 import struct
 import math
 from itertools import repeat
@@ -374,6 +374,10 @@ class DABoard(object):
         # cnt = 0 增加相位
         # cnt = 1 减少相位
         self.Run_Command(self.board_def.CTRL_SYNC_CTRL,17,cnt << 31 | 0x00008000) #EN_VT SET
+
+    def setDAfeedbackDelay(self, tdc_step):
+        # da sync方式为tdc延时链，最大有96个step
+        self.Run_Command(self.board_def.CTRL_SYNC_CTRL,17,(tdc_step << 16) | 0x00008000) #EN_VT SET
     def SetLoop(self,loop1,loop2,loop3,loop4):
         self.Run_Command(self.board_def.CTRL_SET_LOOP,(loop1 << 16) | loop2,(loop3 << 16) | loop4)
     def StartStop(self,index):
@@ -406,6 +410,13 @@ class DABoard(object):
         self.Run_Command(self.board_def.CTRL_DAC_DEFAULT,channel-1, volt)
     def SetBoardcast(self,isBoardcast, period):
         self.Run_Command(self.board_def.CTRL_MONITOR,isBoardcast, period)
+
+    def WriteSeq(self,ch,seq):
+        if(ch < 1 or ch > self.channel_amount):
+            print('Wrong channel!')        #检查通道编号
+        startaddr = (ch*2-1)<<18             #序列的内存起始地址，单位是字节。
+        self.Write_RAM(startaddr, seq)
+
     def WriteSeq(self,ch,seq):
         if(ch < 1 or ch > self.channel_amount):
             print('Wrong channel!')        #检查通道编号
@@ -435,6 +446,30 @@ class DABoard(object):
         data0 = addr | (2<<8)
         reg_data = self.Run_Command(self.board_def.CTRL_UPDATE_DELAYIP_REG, data0, 0)
         return reg_data
+
+    def SetDacOffset(self, channel, offset_code):
+        """
+
+        :param self: AWG对象
+        :param channel: 通道值（1，2，3，4）
+        :param offset_code: 对应的DA通道的offset值，精度到1个LSB
+        :return: None，网络通信失败表示命令设置失败
+        """
+
+        self._channel_check(channel)
+        # self.user_setted_offset[channel - 1] = offset_code
+
+        ch_map = [3, 4, 1, 2]
+        ch = ch_map[channel - 1]
+        dac_sel = (((ch - 1) >> 1) + 1) << 24
+        page = ((ch - 1) & 0x01) + 1
+        temp1 = (offset_code + self._calibrated_offset[channel - 1] >> 0) & 0xFF
+        temp2 = (offset_code + self._calibrated_offset[channel - 1] >> 8) & 0xFF
+        self.Run_Command(self.board_def.CTRL_DAC_WRITE, data1=(dac_sel | 0x008), data0=page)
+        self.Run_Command(self.board_def.CTRL_DAC_WRITE, data1=(dac_sel | 0x135), data0=1)  # 使能offset
+        self.Run_Command(self.board_def.CTRL_DAC_WRITE, data1=(dac_sel | 0x136), data0=temp1)  # LSB [7:0]
+        self.Run_Command(self.board_def.CTRL_DAC_WRITE, data1=(dac_sel | 0x137), data0=temp2)  # LSB [15:8]
+        self.Run_Command(self.board_def.CTRL_DAC_WRITE, data1=(dac_sel | 0x13A), data0=0)  # SIXTEEN [4:0]
 
     def WriteFLASH_old(self, data):
         """Write to data to flash old version."""

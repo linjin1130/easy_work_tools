@@ -1,3 +1,5 @@
+import time
+
 from DAboard import *
 from DAboard_defines import *
 import filecmp
@@ -146,36 +148,46 @@ def da_config_flash(new_ip, source_file_name, erase=True, is_old_version=False):
         write_flash(da, source_data[256:], flash_addr+256, 0)
     read_flash(da, flash_addr, target_file_name, filesize)
 
+
     ######################
     end_time = time.time()
     # print(len(data1))
     print('time is{}'.format(end_time-start_time))
 
-
+    stat = True
     if filecmp.cmp(source_file_name, target_file_name):
-        da.DA_reprog()
+        if golden_file == 0:
+            da.DA_reprog()
         da.disconnect()
-        return True
+        stat = True
     else:
         da.disconnect()
-        return False
+        stat = False
 
-if __name__ == '__main__':
-    condigs1 = 'D:\\FPGA\\vivado_2016_4\\AD_DA\\DA_AD_PRJ\\CONFIG_FILES\\V01_46_11_SPANSION_U.bin'
-    condigs2 = 'D:\\FPGA\\vivado_2016_4\\AD_DA\\DA_AD_PRJ\\CONFIG_FILES\\V01_44_10_MICRON_U.bin'
-    new_ip = '10.0.5.1'
-    if int(new_ip.split('.')[2]) > 4:
-        source_file_name = condigs1
-    else:
-        source_file_name = condigs2
+    note = '失败'
+    if stat:
+        note = '成功'
+    with open('配置记录.txt', 'a') as f:
+        f.write(','.join([time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),new_ip, note, source_file_name, '\n']))
+    return stat
 
-    sucess = 0
-    failure = 0
-    for i in range(1):
-        if da_config_flash(new_ip, source_file_name):
-            sucess += 1
-            print('configure successfull')
-        else:
-            failure += 1
-            print('Error: confugure failed')
-        print('成功{0}次，失败{1}次'.format(sucess, failure))
+
+# if __name__ == '__main__':
+#     condigs1 = 'D:\\FPGA\\vivado_2016_4\\AD_DA\\DA_AD_PRJ\\CONFIG_FILES\\V01_46_11_SPANSION_U.bin'
+#     condigs2 = 'D:\\FPGA\\vivado_2016_4\\AD_DA\\DA_AD_PRJ\\CONFIG_FILES\\V01_44_10_MICRON_U.bin'
+#     new_ip = '10.0.5.7'
+#     if int(new_ip.split('.')[2]) > 4:
+#         source_file_name = condigs1
+#     else:
+#         source_file_name = condigs2
+#
+#     sucess = 0
+#     failure = 0
+#     for i in range(1):
+#         if da_config_flash(new_ip, source_file_name):
+#             sucess += 1
+#             print('configure successfull')
+#         else:
+#             failure += 1
+#             print('Error: confugure failed')
+#         print('成功{0}次，失败{1}次'.format(sucess, failure))

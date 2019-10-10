@@ -6,12 +6,12 @@ da2 = DABoard()
 
 adname = 'B18-R_21.35m-'
 # da1_ip = '10.0.5.2'
-da2_ip = '10.0.5.4'
+da2_ip = '10.0.5.217'
 # board_status = da1.connect(da1_ip)
 board_status2 = da2.connect(da2_ip)
 # da.GetFlashType()   B`
 # da.DA_reset()
-# cnt_arr = []
+cnt_arr = []
 # err_cnt = []
 # da.SetIsMaster(0)
 # da2.SetIsMaster(1)
@@ -59,33 +59,40 @@ board_status2 = da2.connect(da2_ip)
 #     time.sleep(1)
 # #
 
+da2.ClearTrigCount()
 
-
-da2.SetTrigInterval(5*250)
-da2.SetTrigCount(5000)
+da2.SetTrigInterval(100*250)
+da2.SetTrigCount(10000)
 da2.SetTrigStart(1)
 da2.SetTrigStop(1002)
-da2.SetTrigCountL2(1)
-da2.SendIntTrig()
-# da2.setOutputSwitch(0)# switch off
+# da2.SetTrigInterval(3*250)
+# da2.SetTrigCountL2(512)
+# da2.SendIntTrig()
+da2.setOutputSwitch(1)# switch off
 # da1.setOutputSwitch(0)# switch off
-# da2.StartTrigAdapt()
-# time.sleep(1)
+da2.StartTrigAdapt()
+time.sleep(0.5)
 # da2.setOutputSwitch(1)# switch off
 # da1.setOutputSwitch(1)# switch off
-# for i in range(600):
-#     time.sleep(0.7)
-#     cnt = da2.GetDAADSyncErrCnt()
-#     cnt_arr.append(cnt)
-#     print(cnt)
-#
-# plt.figure()
-# plt.xlabel(u"    xxxxxx")
-# plt.ylabel(u'同步错误计数(对数)')
-# plt.title(adname+da2_ip+u"同步延时调节计数")
-# # plt.semilogy()#对数显示
-# plt.plot(cnt_arr)
-# plt.show()
+time_zero = time.time()
+for i in range(1,513):
+    while True:
+        new_time = time.time()
+        if i+0.15 < new_time - time_zero < 0.25+i:
+            break
+
+    cnt = da2.GetDAADSyncErrCnt()
+    cnt_arr.append(cnt)
+    # print(cnt, new_time - time_zero)
+    print(cnt)
+
+plt.figure()
+plt.xlabel(u"    xxxxxx")
+plt.ylabel(u'同步错误计数(对数)')
+plt.title(adname+da2_ip+u"同步延时调节计数")
+# plt.semilogy()#对数显示
+plt.plot(cnt_arr)
+plt.show()
 
 # da.DA_reprog()
 # da.disconnect()

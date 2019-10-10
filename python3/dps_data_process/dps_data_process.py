@@ -1,4 +1,5 @@
 import csv
+import math
 import os
 import scipy
 
@@ -136,6 +137,7 @@ with open(filename) as f:
 
     # 建立新的列表
 
+    avg_lst = []
     new_list.append(raw_data[0])
     for data in raw_data[1:]:
         # 减掉暗计数
@@ -147,6 +149,8 @@ with open(filename) as f:
             temp_str = int(data[-2]) - min_val[int(data[0])]
             data[-2] = str(temp_str)
         new_list.append(data)
+        avg_lst.append(np.mean(data))
+    print(avg_lst)
 # fd = os.open(filename_wr, 0)
 # os.close(fd)
 with open(filename_wr, 'w', newline="") as f:

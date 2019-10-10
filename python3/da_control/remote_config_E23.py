@@ -1,8 +1,8 @@
 from remote_config import *
 
-condigs1 = 'D:\\FPGA\\vivado_2016_4\\AD_DA\\DA_AD_PRJ\\CONFIG_FILES\\V01_58_27_SPANSION_U.bin'
+condigs1 = 'D:\\FPGA\\vivado_2016_4\\AD_DA\\DA_AD_PRJ\\CONFIG_FILES\\awg_250M_192_S.bin'
 condigs2 = 'D:\\FPGA\\vivado_2016_4\\AD_DA\\DA_AD_PRJ\\CONFIG_FILES\\V01_58_27_MICRON_U.bin'
-new_ip = '10.0.4.23'
+new_ip = '10.0.5.140'
 if int(new_ip.split('.')[2]) > 4:
     source_file_name = condigs1
 else:
