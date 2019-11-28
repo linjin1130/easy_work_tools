@@ -17,6 +17,13 @@ from itertools import repeat
 from collections import Counter
 import asyncio
 
+def get_host_ip():
+    addrs = socket.getaddrinfo(socket.gethostname(), None)
+    for item in addrs:
+        if item[-1][0].find('10.0') > -1:
+            return item[-1][0]
+    return '10.0.255.255'
+
 class DABoard(object):
     """
         DA 板对象
@@ -30,6 +37,8 @@ class DABoard(object):
         self.port       = 80
         self.zeros      = list(repeat(0,1024))
         self.channel_amount = 4
+        self.ip = None
+        self.host_ip = get_host_ip()
         # Initialize core parameters
         self.daTrigDelayOffset  = 0
         self.offsetCorr       = [0,0,0,0,0,0,0,0]
@@ -42,6 +51,7 @@ class DABoard(object):
     def connect(self, addr):
         """Connect to Server"""
         #host = '149.199.131.176'
+        self.ip = addr
         host = addr
         print ('Host name is: {}'.format(host))
         try:
@@ -54,7 +64,7 @@ class DABoard(object):
             self.sockfd.close()
             self.sockfd = None
         if self.sockfd is None:
-            print ('ERROR:Could not open socket')
+            print (f'ERROR:Could not open socket:{addr}')
             return -1
 
 
@@ -205,7 +215,10 @@ class DABoard(object):
         # tt= struct.unpack('c'*len(msg), msg)
         # print(tt)
         while totalsent < len(msg):
-            sent = self.sockfd.send(msg)
+            try:
+                sent = self.sockfd.send(msg)
+            except:
+                print(f'{self.ip} socket failed')
             if sent == 0:
                 raise RuntimeError("Socket connection broken")
             totalsent = totalsent + sent
@@ -216,11 +229,15 @@ class DABoard(object):
         bytes_recd = 0
         while bytes_recd < 8:
             #I'm reading my data in byte chunks
-            chunk = self.sockfd.recv(min(8 - bytes_recd, 4))
-            if chunk == '':
-               raise RuntimeError("Socket connection broken")
-            chunks.append(chunk)
-            bytes_recd = bytes_recd + len(chunk)
+            try:
+                chunk = self.sockfd.recv(min(8 - bytes_recd, 4))
+                chunks.append(chunk)
+                bytes_recd = bytes_recd + len(chunk)
+            except:
+                print(f'{self.ip} socket failed')
+            # if chunk == '':
+            #    raise RuntimeError("Socket connection broken")
+
         stat_tuple = struct.unpack('L', chunks[0])
         data_tuple = struct.unpack('L', chunks[1])
         stat = stat_tuple[0]
@@ -408,21 +425,19 @@ class DABoard(object):
         volt = 65535 - volt         # 由于负通道接示波器，数据反相方便观察
         #print('default volt{0}'.format(volt))
         self.Run_Command(self.board_def.CTRL_DAC_DEFAULT,channel-1, volt)
-    def SetBoardcast(self,isBoardcast, period):
-        self.Run_Command(self.board_def.CTRL_MONITOR,isBoardcast, period)
+
+    def set_monitor(self,enable):
+        _ip_para = 0
+        print(self.host_ip)
+        for idx, _d in enumerate(self.host_ip.split('.')):
+            _ip_para = int(_d) << (24 - idx * 8)
+        self.Run_Command(self.board_def.CTRL_MONITOR,enable, _ip_para)
 
     def WriteSeq(self,ch,seq):
         if(ch < 1 or ch > self.channel_amount):
             print('Wrong channel!')        #检查通道编号
         startaddr = (ch*2-1)<<18             #序列的内存起始地址，单位是字节。
         self.Write_RAM(startaddr, seq)
-
-    def WriteSeq(self,ch,seq):
-        if(ch < 1 or ch > self.channel_amount):
-            print('Wrong channel!')        #检查通道编号
-        startaddr = (ch*2-1)<<18             #序列的内存起始地址，单位是字节。
-        self.Write_RAM(startaddr, seq)
-        # print(startaddr,seq)
 
     def WriteWave(self,ch,wave):
         if(ch < 1 or ch > self.channel_amount):

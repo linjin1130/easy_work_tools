@@ -1,9 +1,9 @@
 from DAboard import *
 import filecmp
-
+from data_waves import *
 import matplotlib.pyplot as plt
 da = DABoard()
-new_ip = '10.0.2.5'
+new_ip = '10.0.5.188'
 
 board_status = da.connect(new_ip)
 # da.Run_Command(26,0,0)
@@ -39,6 +39,7 @@ da_ctrl.generate_trig_seq(loopcnt=1024)
 # plt.show()
 print(len(da_ctrl.wave))
 cnt=0
+
 for i in range(1000000):
     da.WriteSeq(1,da_ctrl.seq)
     da.WriteWave(1,da_ctrl.wave)
@@ -53,7 +54,7 @@ for i in range(1000000):
 
     da.StartStop(240)
 
-    da.SetTrigCount(10)
+    da.SetTrigCount(1000)
     da.SendIntTrig()
     da.StartStop(15)
     time.sleep(2)
