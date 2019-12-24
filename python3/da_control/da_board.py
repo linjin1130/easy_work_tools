@@ -9,7 +9,8 @@ from logging_util import logger
 
 import struct
 import socket
-
+import sys
+import pdb
 def get_host_ip():
     addrs = socket.getaddrinfo(socket.gethostname(), None)
     for item in addrs:
@@ -23,7 +24,6 @@ class VirtualDll:
 
     def __getattr__(self, name):
         def func(*args, **kargs):
-            # print(f'[{self.da_id}] call dll function: {name}')
             return 0
         return func
 
@@ -82,6 +82,7 @@ class RawBoard(object):
         self.sockfd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sockfd.settimeout(self.timeout)
         self.commiting = operation_dic['none']
+
     def connect(self):
         """Connect to Server"""
         count = 5
@@ -91,12 +92,8 @@ class RawBoard(object):
                     self.sockfd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     self.sockfd.settimeout(self.timeout)
                 self.sockfd.connect((self.ip, self.port))
-                print(f'{self.ip} connect sucessful.')
-                # print(f'sock_fd, {self.sockfd}')
+                logger.info(f'{self.ip} connect sucessful.')
                 self.connect_status = 1
-                # self.write_command(0xdeadbeef, 0, 0, donot_ret=True)
-                # init_cmd = struct.pack('I', 0xDEADBEAF)
-                # self.sockfd.send(init_cmd)
                 return 0
             except :
                 self.connect_status = 0
@@ -104,9 +101,12 @@ class RawBoard(object):
                 self.sockfd = None
             count -= 1
             logger.info("DAC {} connect {} failed" .format(self.id, 5-count))
+            # time.sleep(1)
         if self.sockfd is None:
             logger.error("DAC %s connect failed!", self.id)
             return 1
+
+
 
     def disconnect(self):
         """Close the connection to the server."""
@@ -118,6 +118,72 @@ class RawBoard(object):
             logger.error("DAC %s already disconnected!", self.id)
         return 0
 
+    def init_tcp(self):
+        init_cmd = struct.pack('I', 0xDEADBEEF)
+        try:
+            self.sockfd.send(init_cmd*3)
+        except:
+            logger.error(f'{self.id} init tcp failed')
+            pass
+
+    def send_data(self, msg):
+        """Send data over the socket."""
+        totalsent = 0
+        sent = 0
+        while totalsent < len(msg):
+            try:
+                sent = self.sockfd.send(msg)
+            except:
+                self.connect()
+                self.init_tcp()
+                # break
+                return -1
+            # if sent == 0:
+            #     raise RuntimeError("Socket connection broken")
+            totalsent = totalsent + sent
+        return 0
+
+    def receive_data(self):
+        """Read received data from the socket."""
+        chunks = []
+        bytes_recd = 0
+        try:
+            while bytes_recd < 8:
+                #I'm reading my data in byte chunks
+                chunk = self.sockfd.recv(min(8 - bytes_recd, 4))
+                if chunk == '':
+                   raise RuntimeError("Socket connection broken")
+                chunks.append(chunk)
+                bytes_recd = bytes_recd + len(chunk)
+        except:
+            # self.DA_reprog()
+            # raise RuntimeError("Socket connection broken")
+            # self.sockfd.settimeout(1)
+            self.connect()
+            self.init_tcp()
+            return -1, -1
+        stat_tuple = struct.unpack('L', chunks[0])
+        data_tuple = struct.unpack('L', chunks[1])
+        stat = stat_tuple[0]
+        data = data_tuple[0]
+        return stat, data
+
+    def receive_RAM(self, length):
+        """Read received data from the socket after a read RAM command."""
+        ram_data = b''
+        bytes_recd = 0
+        # self.sockfd.settimeout(self.timeout)
+        while bytes_recd < length:
+            #I'm reading my data in byte chunks
+            chunk = self.sockfd.recv(min(length - bytes_recd, 1024))
+            #Unpack the received data
+            # data = struct.unpack("L", chunk)
+            ram_data += chunk
+            if chunk == '':
+               raise RuntimeError("Socket connection broken")
+            bytes_recd = bytes_recd + len(chunk)
+        return ram_data
+
     def Write_Reg(self, bank, addr, data):
         """Write to register command."""
         cmd = 0x02
@@ -126,22 +192,13 @@ class RawBoard(object):
         unpackedBank = struct.unpack('4b', packedBank)
 
         packet = struct.pack("4bLL", cmd, unpackedBank[0], unpackedBank[1], unpackedBank[2], addr, data)
-    #     print ('this is my packet: {}'.format(repr(packet)))
         #Next I need to send the command
         self.send_data(packet)
-        # try:
-        #     self.send_data(packet)
-        # except socket.timeout:
-        #     print (f"Write_Reg send data Timeout raised and caught: {self.id}")
-        #next read from the socket
-        # try:
-        #     stat, data = self.receive_data()
-        # except socket.timeout:
-        #     print (f"Write_Reg recieve data Timeout raised and caught: {self.id}")
         stat, data = self.receive_data()
         if stat != 0x0:
-            print (f'{self.id} Write_Reg Issue with Write Command stat: {stat}')
+            logger.info(f'{self.id} Write_Reg Issue with Write Command stat: {stat}')
             return -1
+
         return 0
 
     def Read_Reg(self, bank, addr, data=0xFAFAFAFA):
@@ -156,19 +213,9 @@ class RawBoard(object):
         packet = struct.pack("4bLi", cmd, unpackedBank[0], unpackedBank[1], unpackedBank[2], addr, data)
         #Next I need to send the command
         self.send_data(packet)
-        # try:
-        #     self.send_data(packet)
-        # except socket.timeout:
-        #     print (f"Read_Reg send data Timeout raised and caught: {self.id}")
-        #next read from the socket
-        # try:
-        #     stat, data = self.receive_data()
-        # except socket.timeout:
-        #     print (f"Read_Reg recieve data Timeout raised and caught: {self.id}")
-
         stat, data = self.receive_data()
         if stat != 0x0:
-            print (f'{self.id} Read_Reg Issue with Write Command stat: {stat}')
+            logger.info(f'{self.id} Read_Reg Issue with Write Command stat: {stat}')
             return -1
         return data
 
@@ -187,7 +234,7 @@ class RawBoard(object):
         #next read from the socket
         recv_stat, _ = self.receive_data()
         if recv_stat != 0x0:
-            print (f'{self.id}: read_memory Issue with Reading RAM stat: {recv_stat}')
+            logger.info(f'{self.id}: read_memory Issue with Reading RAM stat: {recv_stat}')
             return recv_stat
         ram_data = self.receive_RAM(int(length))
         return ram_data
@@ -208,7 +255,7 @@ class RawBoard(object):
             #next read from the socket
             recv_stat, _ = self.receive_data()
             if recv_stat != 0x0:
-                print (f'{self.id} write_memory send cmd Error stat={recv_stat}!!!')
+                logger.info(f'{self.id} write_memory send cmd Error stat={recv_stat}!!!')
                 return recv_stat
             #method 1
             format = "{0:d}H".format(len(wave))
@@ -217,128 +264,37 @@ class RawBoard(object):
             #next read from the socket to ensure no errors occur
             recv_stat, recv_data = self.receive_data()
             if recv_stat == -1 and recv_data == -1:
+                logger.info("重连%d............" % (5 - count))
                 self.disconnect()
                 self.connect()
                 count -= 1
                 continue
-        # print(packet)
             if recv_stat != 0x0:
-                print (f'{self.id} write_memory send data Error stat={recv_stat}!!!')
+                logger.info(f'{self.id} write_memory send data Error stat={recv_stat}!!!')
                 return recv_stat
             return 0
         return 1
 
     def write_command(self, ctrl, data0, data1):
         """write command."""
-        # cmd = 0x05
-        # packedCtrl = struct.pack("l", ctrl)
-        # unpackedCtrl = struct.unpack('4b', packedCtrl)
-        # packet = struct.pack("4bLL", cmd, unpackedCtrl[0], unpackedCtrl[1], unpackedCtrl[2], data0, data1)
         packet = struct.pack("LLL", ctrl, data0, data1)
-    #    print ('this is my cmd packet: {}'.format(repr(packet)))
         self.send_data(packet)
         stat, data = self.receive_data()
         if stat != 0x0:
-            print (f'{self.id}: write_command Error, cmd: 0x{hex(ctrl)}, error stat={stat}!')
+            logger.error(f'{self.id}: write_command Error, cmd: 0x{hex(ctrl)}, error stat={stat}!')
         return stat
 
-    def set_para(self, bank, addr, data=0):
-        self.para_addr_list.append((bank << 16) | addr)
-        self.para_data_list.append(data)
-        # print(hex(self.para_addr_list[-1]), hex(self.para_data_list[-1]))
-        assert len(self.para_addr_list) <= 128
-        
-    def commit_para(self):
-        cmd_cnt = len(self.para_data_list)
-        msg = struct.pack('BBBB', 0x06, 0, 0, cmd_cnt)
-        for addr, data in zip(self.para_addr_list, self.para_data_list):
-            # print(addr, data)
-            msg = msg + struct.pack('LL', addr, data)
-        self.commiting = operation_dic['para']
-        self.send_data(msg)
-
-    def send_data(self, msg):
-        """Send data over the socket."""
-        totalsent = 0
-        sent = 0
-        while totalsent < len(msg):
-            try:
-                sent = self.sockfd.send(msg)
-            except:
-                self.connect()
-                self.init_tcp()
-                break
-            # if sent == 0:
-            #     raise RuntimeError("Socket connection broken")
-            totalsent = totalsent + sent
-
-    def receive_data(self):
-        """Read received data from the socket."""
-        chunks = []
-        bytes_recd = 0
-        # self.sockfd.settimeout(20)
-
-        try:
-            while bytes_recd < 8:
-                #I'm reading my data in byte chunks
-                chunk = self.sockfd.recv(min(8 - bytes_recd, 4))
-                if chunk == '':
-                   raise RuntimeError("Socket connection broken")
-                chunks.append(chunk)
-                bytes_recd = bytes_recd + len(chunk)
-        except:
-            # self.DA_reprog()
-            # raise RuntimeError("Socket connection broken")
-            # self.sockfd.settimeout(1)
-            self.connect()
-            self.init_tcp()
-            return -1, -1
-        stat_tuple = struct.unpack('L', chunks[0])
-        data_tuple = struct.unpack('L', chunks[1])
-
-        stat = stat_tuple[0]
-        data = data_tuple[0]
-        # print('00000000000000', stat, data)
-        # self.sockfd.settimeout(1)
-        return stat, data
-
-    def receive_RAM(self, length):
-        """Read received data from the socket after a read RAM command."""
-        # chunks = []
-        ram_data = b''
-        bytes_recd = 0
-        # self.sockfd.settimeout(self.timeout)
-        while bytes_recd < length:
-            #I'm reading my data in byte chunks
-            chunk = self.sockfd.recv(min(length - bytes_recd, 1024))
-            #Unpack the received data
-            # data = struct.unpack("L", chunk)
-            # print(type(chunk))
-            ram_data += chunk
-            if chunk == '':
-               raise RuntimeError("Socket connection broken")
-            # chunks.append(chunk)
-            bytes_recd = bytes_recd + len(chunk)
-        # print(bytes_recd)
-        #  print ('Print something I can understand: {}'.format(repr(chunks)))
-        #  print ram_data
-        return ram_data
 
 class DABoard(RawBoard):
-    #   加载DA板驱动动态库
-    # dll = ctypes.cdll.LoadLibrary('USTCDACDriver.dll')
     is_block = 0  # is run in a block mode
     channel_amount = 4  # DA板通道个数，依次为X、Y、DC、Z
     def __init__(self, id="E08", ip="10.0.4.8", port=80, connect_status=0,trig_interval_l1=200e-6,trig_interval_l2=0.001,
                  trig_count_l1=10,trig_count_l2=1, output_delay=0, channel_gain=None,
                 channel_default_voltage=None, data_offset=None, trig_out_delay_step=None,
-                 output_delay_step=None, sample_rate=0.5e-9, sync_delay=None, batch_mode=True):
+                 output_delay_step=None, sample_rate=0.5e-9, sync_delay=None, channel_sampling_ratio=None, batch_mode=True):
         super(DABoard, self).__init__()
         if channel_gain is None:
             channel_gain = [511 for x in range(0, self.channel_amount)]
-        # if channel_offset is None:
-        #     channel_offset = [0 for x in range(0, self.channel_amount)]
-
         if channel_default_voltage is None:
             channel_default_voltage = [32768 for x in range(0, self.channel_amount)]
         if data_offset is None:
@@ -349,6 +305,8 @@ class DABoard(RawBoard):
             output_delay_step = [4 for x in range(0, self.channel_amount)]
         if sync_delay is None:
             sync_delay = [0 for x in range(0, self.channel_amount)]
+        if channel_sampling_ratio is None:
+            channel_sampling_ratio = [1 for x in range(0, self.channel_amount)]
         #赋值
         self.host_ip = get_host_ip()
         self.id = id  # DA板配置表标识
@@ -370,13 +328,14 @@ class DABoard(RawBoard):
         self.trig_interval_l2_info = trig_interval_l2  # DA板默认触发间隔
         self.trig_count_l1_info = trig_count_l1
         self.trig_count_l2_info = trig_count_l2
+        self.trig_source = 0 ## 选择触发模块通道做触发输出
         self.output_delay_info = output_delay  # DA板输出延时
-        # self.channel_offset = channel_offset  # DAC channel offset
         self.data_offset = data_offset
         self.trig_out_delay_step = trig_out_delay_step
         self.output_delay_step = output_delay_step
         self.sample_rate = sample_rate
         self.sync_delay = sync_delay  # DA板同步延时
+        self.channel_sampling_ratio = channel_sampling_ratio  # DA板超采样
         # 记录配置到板子的信息
         self.channel_gain = [None for x in range(0, self.channel_amount)]
         self.channel_default_voltage = [None for x in range(0, self.channel_amount)]
@@ -387,8 +346,7 @@ class DABoard(RawBoard):
         self.trig_delay = None  # DA板触发延时
         self.trig_delay_width=None
         self.output_delay = None  # DA板输出延时
-        # if self.is_mock:
-        #     self.dll = VirtualDll(self.id)
+
     @property
     def is_mock(self):
         return 'mock' in self.id.lower()
@@ -397,86 +355,24 @@ class DABoard(RawBoard):
         if self.is_block == 1:
             self.get_return(1)
 
-    # def connect(self):
-    #     # dll_func = self.dll.Open
-    #     # self.f_id = ctypes.c_int(0)
-    #     # ret = dll_func(ctypes.byref(self.f_id), self.ip, self.port)
-    #     ret = self.raw_connect()
-    #     if ret == 0:
-    #         self.connect_status = 1
-    #     else:
-    #         self.disp_error(ret)
-    #         logger.error("DAC %s connect failed!", self.id)
-    #     return ret
+    def set_para(self, bank, addr, data=0):
+        print(f'{self.id} set para: {bank}, {addr}, {data}, {len(self.para_addr_list)}')
+        self.para_addr_list.append((bank << 16) | addr)
+        self.para_data_list.append(data)
+        assert len(self.para_addr_list) <= 128
 
-    # def disconnect(self):
-    #     ret = 0
-    #     if self.connect_status == 1:
-    #         dll_func = self.dll.Close
-    #         ret = dll_func(self.f_id, self.ip, self.port)
-    #         if ret == 0:
-    #             self.connect_status = 0
-    #         else:
-    #             self.disp_error(ret)
-    #             logger.error("DAC %s disconnect failed!", self.id)
-    #     else:
-    #         logger.error("DAC %s already disconnected!", self.id)
-    #     return ret
+    def commit_para(self):
+        cmd_cnt = len(self.para_data_list)
+        msg = struct.pack('BBBB', 0x06, 0, 0, cmd_cnt)
+        for addr, data in zip(self.para_addr_list, self.para_data_list):
+            msg = msg + struct.pack('LL', addr, data)
+        self.commiting = operation_dic['para']
+        print("commit para ", len(msg))
+        ret = self.send_data(msg)
+        if ret == 0:
+            return ret
+        return -1
 
-    # #   写命令，DA板原子操作
-    # def write_command(self, ins, para1, para2):
-    #     self.connect()
-    #     dll_func = self.dll.WriteInstruction
-    #     ret = dll_func(self.f_id, ins, para1, para2)
-    #     if not ret == 0:
-    #         self.disp_error(ret)
-    #     self.block()
-    #     return ret
-
-    # #   写内存数据
-    # def write_memory(self, ins, start, length, data):
-    #     self.connect()
-    #     PData = ctypes.c_int16 * len(data)
-    #     p_data = PData()
-    #     p_data[:] = data  # data should be array of integers
-    #     dll_func = self.dll.WriteMemory
-    #     ret = dll_func(self.f_id, ins, start, length, p_data)
-    #     if not ret == 0:
-    #         self.disp_error(ret)
-    #     self.block()
-    #     return ret
-
-    # #   读内存数据
-    # def read_memory(self, ins, start, length):
-    #     self.connect()
-    #     dll_func = self.dll.ReadMemory
-    #     ret = dll_func(self.f_id, ins, start, length)
-    #     if not ret == 0:
-    #         self.disp_error(ret)
-    #     self.block()
-    #     return ret
-
-    # #   写寄存器
-    # def write_reg(self, bank, addr, data):
-    #     self.connect()
-    #     cmd = bank * 256 + 2  # 表示WriteReg，指令和bank存储在一个DWORD数据中
-    #     ret = self.write_command(cmd, addr, data)
-    #     if not ret == 0:
-    #         self.disp_error(ret)
-    #         logger.error("DAC %s write reg failed!", self.id)
-    #     self.block()
-    #     return ret
-
-    # #   读寄存器
-    # def read_reg(self, bank, addr):
-    #     self.connect()
-    #     cmd = bank * 256 + 1  # 表示ReadReg，指令和bank存储在一个DWORD数据中
-    #     ret, data = self.write_command(cmd, addr, 0)
-    #     if not ret == 0:
-    #         self.disp_error(ret)
-    #         logger.error("DAC %s read reg failed!", self.id)
-    #     result = self.get_return(1)
-    #     return result.resp_data
     def commit_mem(self):
         cmd = [0x07, 1, 2, 3]
         packet = b''
@@ -487,7 +383,6 @@ class DABoard(RawBoard):
                 cmd.append(0)
                 cmd.append(0)
             else:
-                # print(len(wave), len(seq))
                 cmd.append(0)
                 cmd.append(len(wave) << 1)
                 packet += struct.pack(f'{len(wave)}H', *wave)
@@ -498,24 +393,22 @@ class DABoard(RawBoard):
         format = "4B16I"
         _head = struct.pack(format, *cmd)
         packet = _head + packet
-        # print(f'packet len {len(packet)}')
         self.commiting = operation_dic['data']
-        self.send_data(packet)
-        # sta = self.fast_write_memory(packet)
-        # print(f'write status: {sta}')
+        ret = self.send_data(packet)
+        if ret == 0:
+            return ret
+        return -1
 
     def commit_mem_fast(self):
         cmd = [0x07, 1, 2, 3]
         packet = b''
         for wave, seq in zip(self.waves, self.seqs):
             if wave is None:
-                cmd.append(0)
-                cmd.append(0)
-                cmd.append(0)
-                cmd.append(0)
+                cmd.append(0) # wave start addr
+                cmd.append(0) # wave len
+                cmd.append(0) # seq start addr
+                cmd.append(0) # seq len
             else:
-                # print(len(wave), len(seq))
-                # print(type(wave), type(seq))
                 cmd.append(0)
                 cmd.append(len(wave) << 0)
                 packet += wave #struct.pack(f'{len(wave)}H', *wave)
@@ -523,28 +416,36 @@ class DABoard(RawBoard):
                 cmd.append(len(seq) << 0)
                 packet += seq #struct.pack(f'{len(seq)}H', *seq)
 
+        if len(packet)== 0:
+            return 0
+
+        print(f'data head: {cmd}, head len:{sum(cmd)}')
+        print("commit mem fast packet ", len(packet))
         format = "4B16I"
         _head = struct.pack(format, *cmd)
-        # print(type(_head))
         packet = _head + packet
-        # print(f'packet len {len(packet)}')
         self.commiting = operation_dic['data fast']
-        self.send_data(packet)
+        ret = self.send_data(packet)
         # sta = self.fast_write_memory(packet)
         # print(f'write status: {sta}')
+        if ret == 0:
+            return ret
+        return -1
 
     #不要改动
     #   写波形
     # @jit
     def wave_calc(self, channel, offset=0, wave=None):
         data_offset = self.data_offset[channel - 1] + 32768
-        data = np.pad(wave, [0, 32 - (len(wave) & 31)], 'constant') + data_offset
+        data = np.pad(wave, [0, (32 - (len(wave) & 31)) % 32], 'constant') + data_offset
         data = np.clip(data.astype('i'), 0, 65535).tolist()
         return data
 
     def wave_calc_fast(self, channel, offset=0, wave=None):
         data_offset = self.data_offset[channel - 1] + 32768
-        data = np.pad(wave, [0, 32 - (len(wave) & 31)], 'constant') + data_offset
+        data = np.pad(wave, [32, 0], 'constant') # 前16ns 保留为空操作输出
+        data = np.pad(data, [0, (32 - (len(data) & 31)) % 32], 'constant') # 补齐64字节0
+        data = data + data_offset ## 校准后的偏置
         data = np.clip(data.astype('i'), 0, 65535)
         return data
         #         # data = np.pad(wave, [0, 32 - (len(wave) & 31)], 'constant') + data_offset
@@ -586,7 +487,7 @@ class DABoard(RawBoard):
         # data = np.clip(data, 0, 65535).tolist()
 
         data = self.wave_calc_fast(channel, offset, wave)
-
+        print("write wave fast ", len(data))
         start_addr = ((channel - 1) << 19) + 2 * offset
         if self.batch_mode:
             self.waves[channel - 1] = data.tobytes()
@@ -600,9 +501,10 @@ class DABoard(RawBoard):
             self.disp_error(ret)
             logger.error("DAC %s write wave failed, return is: %d!", self.id, ret)
         return ret
+
     #不要改动
     #   写序列
-    def write_seq(self, channel, offset=0, seq=None, fast = False):
+    def write_seq(self, channel, offset=0, seq=None):
         if channel < 1 or channel > self.channel_amount:
             logger.error('Wrong Channel')
             return 3
@@ -624,22 +526,23 @@ class DABoard(RawBoard):
             self.disp_error(ret)
             logger.error("DAC %s write seq failed!", self.id)
         return ret
+
     def write_seq_fast(self, channel, offset=0, seq=None):
         if channel < 1 or channel > self.channel_amount:
             logger.error('Wrong Channel')
             return 3
-        if not (len(seq) & 31) == 0:
-            data = seq + [0] * (32 - (len(seq) & 31))
-        else:
-            data = seq
+        # if not (len(seq) & 31) == 0:
+        #     data = seq + [0] * (32 - (len(seq) & 31))
+        # else:
+        #     data = seq
         start_addr = ((channel * 2 - 1) << 18) + offset * 8  # 序列的内存起始地址，单位是字节
         # start_addr = (channel * 2 - 1) * (1 << 18) + offset * 8  # 序列的内存起始地址，单位是字节
         if self.batch_mode:
-            self.seqs[channel - 1] = data.tobytes()
+            self.seqs[channel - 1] = seq.tobytes()
             return 0
             # ret = self.fast_write_memory(start_addr, data)
         else:
-            ret = self.write_memory(start_addr, data)
+            ret = self.write_memory(start_addr, seq)
         # length_temp = len(data) * 2  # 字节个数
         # ret = self.write_memory(0x00000004, start_addr, length_temp, data)
         if not ret == 0:
@@ -677,6 +580,7 @@ class DABoard(RawBoard):
         self.set_trig_interval_l2(0.001)
         self.stop_output_wave(0)
         self.clear_trig_count()
+        self.set_trig_select(self.trig_source)
 
         for k in range(0, self.channel_amount):
             self.set_gain(k + 1, self.channel_gain_info[k])  # channel start from 1
@@ -693,6 +597,8 @@ class DABoard(RawBoard):
         offset = [121, 202, 203, 204, 205, 321, 402, 403, 404, 405, 722]#, 732]
         mask = [0b11000000, 255, 255, 255, 255, 0b11000000, 255, 255, 255, 255, 0b00000000]
         expection = [0b11000000, 255, 255, 255, 255, 0b11000000,255,255,255,255,0b00000000]
+        if isinstance(ref, int):
+            return 1
         for (a, b, c) in zip(offset, mask, expection):
             if ref[a] & b != c:
                 return 1
@@ -706,19 +612,24 @@ class DABoard(RawBoard):
         return ret
 
     def sync_ctrl(self, id, val):
+        '''
+            id: 触发模块寄存器标识（定义见《DA服务器软件说明》）
+            val: 该寄存器定义的值
+
+        '''
         self.set_para(0, 0x40, id | val)
-        if id == 2:
-            self.set_para(0, 0x40, val | 2)
-            self.set_para(0, 0x40, (val+(4<<16))  | 3)
-        if id == 4:
-            self.set_para(0, 0x40, val | 4)
-            self.set_para(0, 0x40, (val + (4 << 16)) | 5)
-        if id == 9:
-            if (val >> 12) > 65535:
+        if id == 2: ## 设置DA板波形输出延时
+            self.set_para(0, 0x40, val | 2)  ## 脉冲变高计数
+            self.set_para(0, 0x40, (val+(4<<16))  | 3) ## 脉冲变低计数
+        if id == 4: ## 设置DA板输出到AD的触发输出延时
+            self.set_para(0, 0x40, val | 4) ## 脉冲变高计数
+            self.set_para(0, 0x40, (val + (4 << 16)) | 5) ## 脉冲变低计数
+        if id == 9: ## 设置一级触发间隔
+            if (val >> 12) > 65535: # 如果触发间隔大于 65535， FPGA逻辑内部总的计数器设置为65535
                 self.set_para(0, 0x40, (65535 << 16) | 1)
-            elif (val >> 12) <= 0:
+            elif (val >> 12) <= 0: # 如果触发间隔设为0， FPGA逻辑内部总的计数器设置为1000
                 self.set_para(0, 0x40, ((4 * 250) << 16) | 1)
-            else:
+            else: # 其他时候FPGA逻辑内部总的计数器与触发间隔计数相等
                 self.set_para(0, 0x40, (val << 4) | 1)
         # self.commit_para()
 
@@ -733,7 +644,7 @@ class DABoard(RawBoard):
             logger.error("DAC %s power on failed!", self.id)
         return ret
 
-    def start_stop(self, index):
+    def start(self, index):
         if self.batch_mode:
             self.set_para(0, 0x20, 0)
             self.set_para(0, 0x20, index)
@@ -741,7 +652,14 @@ class DABoard(RawBoard):
         ret = self.write_command(0x00000405, index, 0)
         if not ret == 0:
             self.disp_error(ret)
-            logger.error("DAC %s start_stop failed!", self.id)
+            logger.error("DAC %s start failed!", self.id)
+        return ret
+
+    def stop(self, index):
+        ret = self.write_command(0x00000405, index, 0)
+        if not ret == 0:
+            self.disp_error(ret)
+            logger.error("DAC %s stop failed!", self.id)
         return ret
 
     def set_loop(self, arg1, arg2, arg3, arg4):
@@ -791,6 +709,22 @@ class DABoard(RawBoard):
             logger.error("DAC %s set_trig_start failed!", self.id)
         return ret
 
+    def set_trig_select(self, ch = 0):
+        assert ch in [0,1,2,3,4]
+
+        if self.batch_mode:
+            self.sync_ctrl(7, ch << 16)
+            self.trig_source = ch
+            return 0
+
+        ret = self.write_command(0x00001805, 7, ch << 16)
+        if not ret == 0:
+            self.disp_error(ret)
+            logger.error("DAC %s set_trig_select failed!", self.id)
+        else:
+            self.trig_source = ch
+        return ret
+
     def set_trig_stop(self, count):
         assert count < 65536
         count_trans = round(count) << 16
@@ -821,7 +755,6 @@ class DABoard(RawBoard):
 
     def set_trig_interval_l1(self, trig_interval):
         if trig_interval == self.trig_interval_l1:
-            # print('set_trig_interval_l1 is same.')
             return 0
         else:
             count = trig_interval / 4e-9
@@ -848,7 +781,6 @@ class DABoard(RawBoard):
 
     def set_trig_interval_l2(self, trig_interval):
         if trig_interval == self.trig_interval_l2:
-            # print('set_trig_interval_l2 is same.')
             return 0
         else:
             count = trig_interval/ 4e-9
@@ -879,7 +811,6 @@ class DABoard(RawBoard):
             self.trig_count_l1 = count
             return 0
         if count == self.trig_count_l1:
-            # print('self.trig_count_l1 is same')
             return 0
         else:
             ret = self.write_command(0x00001805,  10, count << 12)
@@ -892,7 +823,6 @@ class DABoard(RawBoard):
 
     def set_trig_count_l2(self, count):
         if count == self.trig_count_l2:
-            # print('self.trig_count_l2 is same')
             return 0
         else:
             if self.batch_mode:
@@ -929,22 +859,12 @@ class DABoard(RawBoard):
         # ret = 0
         if chip == 1:
             return self.Read_Reg(0x1c,addr)
-            # self.write_command(0x00001c05, addr, 0)
         else:
             return self.Read_Reg(0x1d,addr)
-            # self.write_command(0x00001d05, addr, 0)
-        # value = self.get_return(1)
-        # return value.resp_data
 
     #   设置DA板的通信超时时间，direction代表方向，0为发送，1为输出，单位为秒
     def set_time_out(self, direction, time):
         return 0
-        # dll_func = self.dll.SetTimeOut
-        # ret = dll_func(self.f_id, direction, time)
-        # if not ret == 0:
-        #     self.disp_error(ret)
-        #     logger.error("DAC %s set_time_out failed!", self.id)
-        # return ret
 
     def set_trig_delay(self, point, width=10*4e-9):
         count = int((self.da_trig_delay_offset + point) / 4e-9 + 1)
@@ -964,7 +884,6 @@ class DABoard(RawBoard):
             self.trig_delay_width=width
             return ret2
         else:
-            print('set_trig_delay is same')
             return 0
 
     def set_da_output_delay(self, delay):
@@ -976,11 +895,9 @@ class DABoard(RawBoard):
             return 0
         if not delay == self.output_delay:
             ret1 = self.set_dac_start(delay / 4e-9 + 1)
-            # ret2 = self.set_dac_stop(sync_delay / 4e-9 + 10)
             self.output_delay=delay
             return ret1
         else:
-            # print('set_da_output_delay is same.')
             return 0
 
     #   设置通道增益，对应bank值为7
@@ -988,11 +905,8 @@ class DABoard(RawBoard):
         if gain < 0:
                 gain += 1024
         if gain == self.channel_gain[channel-1]:
-            # print('gain is same.')
             return 0
         else:
-            # if gain < 0:
-            #     gain += 1024
             channel_map = [2, 3, 0, 1]
             channel_ad = channel_map[channel - 1]
             if self.batch_mode:
@@ -1007,17 +921,6 @@ class DABoard(RawBoard):
                 logger.error("DAC %s set_gain failed!", self.id)
             self.channel_gain[channel-1]=gain
             return ret
-
-    # #   设置通道偏置，对应bank值为7
-    # def set_channel_offset(self, channel, offset):
-    #     channel_map = [6, 7, 4, 5]
-    #     channel_ad = channel_map[channel - 1]
-    #     ret = self.write_command(0x00000702, channel_ad, int(offset))
-    #     if not ret == 0:
-    #         self.disp_error(ret)
-    #         logger.error("DAC %s set_channel_offset failed!", self.id)
-    #     self.channel_offset[channel-1]=offset
-    #     return ret
 
     #   设置通道默认电压
     def set_default_volt(self, channel, volt):
@@ -1049,7 +952,6 @@ class DABoard(RawBoard):
                 logger.error("DAC %s set_default_volt failed!", self.id)
 
         else:
-            # print('default_vol is same')
             ret=0
 
         return ret
@@ -1059,7 +961,7 @@ class DABoard(RawBoard):
         ret = 0
         if channel > 0 and channel < self.channel_amount + 1:
             index = 1 << (channel - 1)
-            ret = self.start_stop(index)
+            ret = self.start(index)
             if not ret == 0:
                 self.disp_error(ret)
                 logger.error("DAC %s start_output_wave failed!", self.id)
@@ -1067,7 +969,7 @@ class DABoard(RawBoard):
             ret=0
             for i in range(1,self.channel_amount+1):
                 index = 1 << (i - 1)
-                ret0 = self.start_stop(index)
+                ret0 = self.start(index)
                 if not ret0 == 0:
                     self.disp_error(ret)
                     logger.error("DAC %s start_output_wave failed!", self.id)
@@ -1078,70 +980,31 @@ class DABoard(RawBoard):
     def stop_output_wave(self, channel):
         if channel > 0:
             index = 1 << (channel - 1 + self.channel_amount)
-            ret = self.start_stop(index)
+            ret = self.stop(index)
             if not ret == 0:
                 self.disp_error(ret)
                 logger.error("DAC {} channel {} stop_output_wave failed!".format(self.id, channel))
-                # logger.error("DAC %s stop_output_wave failed!", self.id)
         elif channel==0:
             ret=0
             for i in range(1,self.channel_amount+1):#遍历所有通道
                 index = 1 << (i - 1 + self.channel_amount)
-                ret0= self.start_stop(index)
+                ret0= self.stop(index)
                 if not ret0 == 0:
                     self.disp_error(ret)
                     logger.error("DAC {} channel {} stop_output_wave failed!".format(self.id,i))
-                    # logger.error("DAC %s stop_output_wave failed!", self.id)
                     ret=ret0
         return ret
-        # self.start_stop(240)
 
     #   获取当前调用位置函数调用信息
     def get_func_type(self, offset):
         return 0
-        # func_types = ["Write instruction type.", "Write memory type.", "Read memory type."]
-        # dll_func = self.dll.GetFunctionType
-        # func_type = ctypes.c_int()
-        # ins = ctypes.c_int()
-        # para1 = ctypes.c_int()
-        # para2 = ctypes.c_int()
-        # ret = dll_func(self.f_id, offset, ctypes.byref(func_type), ctypes.byref(ins), ctypes.byref(para1),
-        #                ctypes.byref(para2))
-        # self.disp_error(ret)
-        # func_type = func_type.value
-        # ins = ins.value
-        # para1 = para1.value
-        # para2 = para2.value
-        # func_type_obj = FuncType(func_type, ins, para1, para2, func_types[func_type - 1])
-        # return func_type_obj
 
     #   获取返回值
     def get_return(self, offset):
         return 0
-        # func_type = self.get_func_type(1)
-        # if func_type.func_type == 1:
-        #     length = 0
-        # else:
-        #     length = func_type.para2 / 2
-        # PData = ctypes.c_ushort * int(length)
-        # resp_stat = ctypes.c_int()
-        # resp_data = ctypes.c_int()
-        # data = PData()
-        # dll_func = self.dll.GetReturn
-        # ret = dll_func(self.f_id, offset, ctypes.byref(resp_stat), ctypes.byref(resp_data), data)
-        # self.disp_error(ret)
-        # resp_stat = resp_stat.value
-        # resp_data = resp_data.value
-        # result = RetResult(resp_stat, resp_data, bytes(data))
-        # return result
 
     #   根据错误码获取错误信息
     def disp_error(self, error_code):
-        # if not error_code == 0:
-        #     dll_func = self.dll.GetErrorMsg
-        #     error_msg = ctypes.create_string_buffer(1024)
-        #     dll_func(error_code, error_msg)
-        #     logger.error(error_msg.value)
         return 0
 
     #   读取芯片温度，预留，有多个芯片，但参数列表仅有target标识
@@ -1154,21 +1017,10 @@ class DABoard(RawBoard):
         return result
 
     def check_status(self):
-        # dll_func = self.dll.CheckSuccessed
-        # is_success = ctypes.c_int()
-        # position = ctypes.c_int()
-        # ret = dll_func(self.f_id, ctypes.byref(is_success), ctypes.byref(position))
-        # if not ret == RetResult.OK:
-        #     self.disp_error(ret)
-        #     logger.error("DAC %s check_status failed!", self.id)
-        # return (ret, is_success.value, position.value) if not self.is_mock else (0, 1, 0)
         return (0, 1, 0)
 
     #主动读取DA板硬件信息，大小为1k
     def read_da_hardware_status(self):
-        # self.read_memory(0x00000003, 0x80000000, 1024)
-        # result = self.get_return(1)
-        # return result
         return self.read_memory(0x80000000, 1024)
 
     # 设置数据偏置
@@ -1176,21 +1028,6 @@ class DABoard(RawBoard):
         self.data_offset[channel - 1] = offset
         return 0
 
-    # def DA_reset(self):
-    #     """Run command."""
-    #     print('da reset please wait 20 seconds')
-    #     cmd = self.board_def.CMD_CTRL_CMD
-    #     ctrl = self.board_def.CTRL_REINIT
-    #     data0 = 1
-    #     data1 = 0
-    #     packedCtrl = struct.pack("l", ctrl)
-    #     unpackedCtrl = struct.unpack('4b', packedCtrl)
-    #     packet = struct.pack("4bLL", cmd, unpackedCtrl[0], unpackedCtrl[1], unpackedCtrl[2], data0, data1)
-    # #    print ('this is my cmd packet: {}'.format(repr(packet)))
-    #     self.send_data(packet)
-    #     time.sleep(5)
-    #     print('da reset done')
-    #     return 0
     def DA_reprog(self):
         """Run command."""
         print('da reprog please wait 10 seconds')
@@ -1201,17 +1038,17 @@ class DABoard(RawBoard):
         print('da reprog done')
         return 0
 
-
-    def init_tcp(self):
-        init_cmd = struct.pack('I', 0xDEADBEEF)
-        try:
-            self.sockfd.send(init_cmd*3)
-        except:
-            print(f'{self.id} init tcp failed')
-            pass
-
     def wait_response(self):
+        # pdb.set_trace()
+        if self.commiting == operation_dic['para']:
+            if len(self.para_addr_list) == 0:
+                return 0
+        else:
+            if self.waves == [None] * 4:
+                return 0
+
         stat, data = self.receive_data()
+        print(self.id, " insert wait response stat is ", stat)
         if stat == 0:
             if self.commiting == operation_dic['para']:
                 self.para_addr_list.clear()
@@ -1220,9 +1057,9 @@ class DABoard(RawBoard):
                 self.waves = [None] * 4
                 self.seqs = [None] * 4
             self.commiting = operation_dic['none']
-            if stat != 0:
-                print(f'{self.id} retrassminit faild')
-            return 0
+            # if stat != 0:
+            #     print(f'{self.id} receive data retrassminit faild')
+            return stat
 
         try_cnt = 5
 
@@ -1237,7 +1074,7 @@ class DABoard(RawBoard):
             self.para_data_list.clear()
             self.commiting = operation_dic['none']
             if stat != 0:
-                print(f'{self.id} retrassminit faild')
+                logger.error(f'{self.id} commit para retrassminit faild')
             return stat
 
         if self.commiting == operation_dic['data']:
@@ -1252,7 +1089,7 @@ class DABoard(RawBoard):
             self.seqs = [None] * 4
             self.commiting = operation_dic['none']
             if stat != 0:
-                print(f'{self.id} retrassminit faild')
+                logger.error(f'{self.id} commit data retrassminit faild')
             return stat
 
         if self.commiting == operation_dic['data fast']:
@@ -1266,5 +1103,6 @@ class DABoard(RawBoard):
             self.seqs = [None] * 4
             self.commiting = operation_dic['none']
             if stat != 0:
-                print(f'{self.id} retrassminit faild')
+                logger.error(f'{self.id} commit data fast retrassminit faild')
             return stat
+        return -1
