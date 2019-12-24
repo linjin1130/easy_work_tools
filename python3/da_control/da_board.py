@@ -437,16 +437,20 @@ class DABoard(RawBoard):
     # @jit
     def wave_calc(self, channel, offset=0, wave=None):
         data_offset = self.data_offset[channel - 1] + 32768
-        data = np.pad(wave, [0, (32 - (len(wave) & 31)) % 32], 'constant') + data_offset
-        data = np.clip(data.astype('i'), 0, 65535).tolist()
+        data = np.pad(wave, [40, 0], 'constant')  # 前20ns 保留为空操作输出
+        data = np.pad(data, [0 , (32 - (len(data) & 31)) % 32], 'constant')  # 补齐64字节0
+        data = data + data_offset  ## 校准后的偏置
+        data = np.clip(data.astype('<u2'), 0, 65535).tolist()
+        ## print(data)
         return data
 
     def wave_calc_fast(self, channel, offset=0, wave=None):
         data_offset = self.data_offset[channel - 1] + 32768
-        data = np.pad(wave, [32, 0], 'constant') # 前16ns 保留为空操作输出
-        data = np.pad(data, [0, (32 - (len(data) & 31)) % 32], 'constant') # 补齐64字节0
+        data = np.pad(wave, [40, 0], 'constant')  # 前20ns 保留为空操作输出
+        data = np.pad(data, [0, (32 - (len(data) & 31)) % 32], 'constant')  # 补齐64字节0
         data = data + data_offset ## 校准后的偏置
-        data = np.clip(data.astype('i'), 0, 65535)
+        data = np.clip(data.astype('<u2'), 0, 65535)
+        ## print(data)
         return data
         #         # data = np.pad(wave, [0, 32 - (len(wave) & 31)], 'constant') + data_offset
         #         # data = np.clip(data.astype('i'), 0, 65535).tolist()
@@ -580,6 +584,7 @@ class DABoard(RawBoard):
         self.set_trig_interval_l2(0.001)
         self.stop_output_wave(0)
         self.clear_trig_count()
+        self.set_multi_board(0) ## 多板工作模式
         self.set_trig_select(self.trig_source)
 
         for k in range(0, self.channel_amount):
@@ -707,6 +712,20 @@ class DABoard(RawBoard):
         if not ret == 0:
             self.disp_error(ret)
             logger.error("DAC %s set_trig_start failed!", self.id)
+        return ret
+
+    def set_multi_board(self, mode = 0):
+        # 1:single board mode 0: multi board mode
+        assert mode in [0,1]
+
+        if self.batch_mode:
+            self.sync_ctrl(19, mode << 16)
+            return 0
+
+        ret = self.write_command(0x00001805, 19, mode << 16)
+        if not ret == 0:
+            self.disp_error(ret)
+            logger.error("DAC %s set_multi_board failed!", self.id)
         return ret
 
     def set_trig_select(self, ch = 0):
@@ -939,7 +958,7 @@ class DABoard(RawBoard):
 
         if self.batch_mode:
             _code = volt+offset
-            _code1 = (_code & 0xFF << 24) | (_code & 0xFF00 << 8)
+            _code1 = ((_code & 0xFF) << 24) | ((_code & 0xFF00) << 8)
             self.set_para(0, 0x41, (_code1 | channel))
             self.channel_default_voltage[channel-1]=volt
             return 0
