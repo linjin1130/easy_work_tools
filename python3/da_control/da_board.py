@@ -68,6 +68,8 @@ def format_data(data_in):
     #     data[2 * i + 1] = temp
     return data
 
+operation_dic = {'none':0, 'para':1, 'data':2, 'para fast':3, 'data fast':4}
+
 class RawBoard(object):
     def __init__(self):
         self.id = None
@@ -79,7 +81,7 @@ class RawBoard(object):
         self.para_data_list = []
         self.sockfd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sockfd.settimeout(self.timeout)
-
+        self.commiting = operation_dic['none']
     def connect(self):
         """Connect to Server"""
         count = 5
@@ -126,19 +128,20 @@ class RawBoard(object):
         packet = struct.pack("4bLL", cmd, unpackedBank[0], unpackedBank[1], unpackedBank[2], addr, data)
     #     print ('this is my packet: {}'.format(repr(packet)))
         #Next I need to send the command
-        try:
-            self.send_data(packet)
-        except socket.timeout:
-            print (f"Write_Reg send data Timeout raised and caught: {self.id}")
+        self.send_data(packet)
+        # try:
+        #     self.send_data(packet)
+        # except socket.timeout:
+        #     print (f"Write_Reg send data Timeout raised and caught: {self.id}")
         #next read from the socket
-        try:
-            stat, data = self.receive_data()
-        except socket.timeout:
-            print (f"Write_Reg recieve data Timeout raised and caught: {self.id}")
+        # try:
+        #     stat, data = self.receive_data()
+        # except socket.timeout:
+        #     print (f"Write_Reg recieve data Timeout raised and caught: {self.id}")
+        stat, data = self.receive_data()
         if stat != 0x0:
             print (f'{self.id} Write_Reg Issue with Write Command stat: {stat}')
             return -1
-
         return 0
 
     def Read_Reg(self, bank, addr, data=0xFAFAFAFA):
@@ -152,16 +155,18 @@ class RawBoard(object):
 
         packet = struct.pack("4bLi", cmd, unpackedBank[0], unpackedBank[1], unpackedBank[2], addr, data)
         #Next I need to send the command
-        try:
-            self.send_data(packet)
-        except socket.timeout:
-            print (f"Read_Reg send data Timeout raised and caught: {self.id}")
+        self.send_data(packet)
+        # try:
+        #     self.send_data(packet)
+        # except socket.timeout:
+        #     print (f"Read_Reg send data Timeout raised and caught: {self.id}")
         #next read from the socket
-        try:
-            stat, data = self.receive_data()
-        except socket.timeout:
-            print (f"Read_Reg recieve data Timeout raised and caught: {self.id}")
+        # try:
+        #     stat, data = self.receive_data()
+        # except socket.timeout:
+        #     print (f"Read_Reg recieve data Timeout raised and caught: {self.id}")
 
+        stat, data = self.receive_data()
         if stat != 0x0:
             print (f'{self.id} Read_Reg Issue with Write Command stat: {stat}')
             return -1
@@ -242,10 +247,6 @@ class RawBoard(object):
         self.para_data_list.append(data)
         # print(hex(self.para_addr_list[-1]), hex(self.para_data_list[-1]))
         assert len(self.para_addr_list) <= 128
-
-    def wait_response(self):
-        stat, data = self.receive_data()
-        return stat
         
     def commit_para(self):
         cmd_cnt = len(self.para_data_list)
@@ -253,13 +254,8 @@ class RawBoard(object):
         for addr, data in zip(self.para_addr_list, self.para_data_list):
             # print(addr, data)
             msg = msg + struct.pack('LL', addr, data)
-        try:
-            self.send_data(msg)
-        except socket.timeout:
-            print (f"Write_Reg send data Timeout raised and caught: {self.id}")
-        self.para_addr_list.clear()
-        self.para_data_list.clear()
-        # print('commit')
+        self.commiting = operation_dic['para']
+        self.send_data(msg)
 
     def send_data(self, msg):
         """Send data over the socket."""
@@ -269,7 +265,8 @@ class RawBoard(object):
             try:
                 sent = self.sockfd.send(msg)
             except:
-                self.disconnect()
+                self.connect()
+                self.init_tcp()
                 break
             # if sent == 0:
             #     raise RuntimeError("Socket connection broken")
@@ -279,6 +276,8 @@ class RawBoard(object):
         """Read received data from the socket."""
         chunks = []
         bytes_recd = 0
+        # self.sockfd.settimeout(20)
+
         try:
             while bytes_recd < 8:
                 #I'm reading my data in byte chunks
@@ -288,7 +287,11 @@ class RawBoard(object):
                 chunks.append(chunk)
                 bytes_recd = bytes_recd + len(chunk)
         except:
-            raise RuntimeError("Socket connection broken")
+            # self.DA_reprog()
+            # raise RuntimeError("Socket connection broken")
+            # self.sockfd.settimeout(1)
+            self.connect()
+            self.init_tcp()
             return -1, -1
         stat_tuple = struct.unpack('L', chunks[0])
         data_tuple = struct.unpack('L', chunks[1])
@@ -296,6 +299,7 @@ class RawBoard(object):
         stat = stat_tuple[0]
         data = data_tuple[0]
         # print('00000000000000', stat, data)
+        # self.sockfd.settimeout(1)
         return stat, data
 
     def receive_RAM(self, length):
@@ -495,11 +499,11 @@ class DABoard(RawBoard):
         _head = struct.pack(format, *cmd)
         packet = _head + packet
         # print(f'packet len {len(packet)}')
+        self.commiting = operation_dic['data']
         self.send_data(packet)
         # sta = self.fast_write_memory(packet)
         # print(f'write status: {sta}')
-        self.waves = [None]*4
-        self.seqs = [None]*4
+
     def commit_mem_fast(self):
         cmd = [0x07, 1, 2, 3]
         packet = b''
@@ -524,11 +528,11 @@ class DABoard(RawBoard):
         # print(type(_head))
         packet = _head + packet
         # print(f'packet len {len(packet)}')
+        self.commiting = operation_dic['data fast']
         self.send_data(packet)
         # sta = self.fast_write_memory(packet)
         # print(f'write status: {sta}')
-        self.waves = [None]*4
-        self.seqs = [None]*4
+
     #不要改动
     #   写波形
     # @jit
@@ -540,7 +544,9 @@ class DABoard(RawBoard):
 
     def wave_calc_fast(self, channel, offset=0, wave=None):
         data_offset = self.data_offset[channel - 1] + 32768
-        return wave + data_offset
+        data = np.pad(wave, [0, 32 - (len(wave) & 31)], 'constant') + data_offset
+        data = np.clip(data.astype('i'), 0, 65535)
+        return data
         #         # data = np.pad(wave, [0, 32 - (len(wave) & 31)], 'constant') + data_offset
         #         # data = np.clip(data.astype('i'), 0, 65535).tolist()
         #         # return data
@@ -583,7 +589,7 @@ class DABoard(RawBoard):
 
         start_addr = ((channel - 1) << 19) + 2 * offset
         if self.batch_mode:
-            self.waves[channel - 1] = wave.tobytes()
+            self.waves[channel - 1] = data.tobytes()
             return 0
             # ret = self.fast_write_memory(start_addr, data)
         else:
@@ -629,7 +635,7 @@ class DABoard(RawBoard):
         start_addr = ((channel * 2 - 1) << 18) + offset * 8  # 序列的内存起始地址，单位是字节
         # start_addr = (channel * 2 - 1) * (1 << 18) + offset * 8  # 序列的内存起始地址，单位是字节
         if self.batch_mode:
-            self.seqs[channel - 1] = seq.tobytes()
+            self.seqs[channel - 1] = data.tobytes()
             return 0
             # ret = self.fast_write_memory(start_addr, data)
         else:
@@ -1190,7 +1196,7 @@ class DABoard(RawBoard):
         print('da reprog please wait 10 seconds')
         packet = struct.pack("LLL", 0x00000105, 2, 1)
         self.send_data(packet)
-        time.sleep(10)
+        time.sleep(6)
         self.connect()
         print('da reprog done')
         return 0
@@ -1198,4 +1204,67 @@ class DABoard(RawBoard):
 
     def init_tcp(self):
         init_cmd = struct.pack('I', 0xDEADBEEF)
-        self.sockfd.send(init_cmd*3)
+        try:
+            self.sockfd.send(init_cmd*3)
+        except:
+            print(f'{self.id} init tcp failed')
+            pass
+
+    def wait_response(self):
+        stat, data = self.receive_data()
+        if stat == 0:
+            if self.commiting == operation_dic['para']:
+                self.para_addr_list.clear()
+                self.para_data_list.clear()
+            else:
+                self.waves = [None] * 4
+                self.seqs = [None] * 4
+            self.commiting = operation_dic['none']
+            if stat != 0:
+                print(f'{self.id} retrassminit faild')
+            return 0
+
+        try_cnt = 5
+
+        if self.commiting == operation_dic['para']:
+            while try_cnt > 0:
+                self.commit_para()
+                stat, data = self.receive_data()
+                try_cnt -= 1
+                if stat == 0:
+                    break
+            self.para_addr_list.clear()
+            self.para_data_list.clear()
+            self.commiting = operation_dic['none']
+            if stat != 0:
+                print(f'{self.id} retrassminit faild')
+            return stat
+
+        if self.commiting == operation_dic['data']:
+            while try_cnt > 0:
+                self.commit_mem()
+                stat, data = self.receive_data()
+                try_cnt -= 1
+                if stat == 0:
+                    break
+
+            self.waves = [None] * 4
+            self.seqs = [None] * 4
+            self.commiting = operation_dic['none']
+            if stat != 0:
+                print(f'{self.id} retrassminit faild')
+            return stat
+
+        if self.commiting == operation_dic['data fast']:
+            while try_cnt > 0:
+                self.commit_mem_fast()
+                stat, data = self.receive_data()
+                try_cnt -= 1
+                if stat == 0:
+                    break
+            self.waves = [None] * 4
+            self.seqs = [None] * 4
+            self.commiting = operation_dic['none']
+            if stat != 0:
+                print(f'{self.id} retrassminit faild')
+            return stat
