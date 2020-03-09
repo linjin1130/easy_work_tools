@@ -39,6 +39,7 @@ da_ctrl.generate_seq()
 # 先停止输出
 
 for i in range(1):
+    _start = time.time()
     da.StartStop(240)
     # 写入通道1 波形输出指令和波形
     da.WriteSeq(1,da_ctrl.seq)
@@ -60,9 +61,10 @@ for i in range(1):
     # 使能输出
     da.StartStop(15)
     # 使能触发
-    da.SendIntTrig()
-    time.sleep(1)
-    print(i)
+    # da.SendIntTrig()
+    # time.sleep(1)
+    _end = time.time()
+    print(f'test count:{i}, time:{round(_end-_start, 5)}')
 
 #断开设备连接
 da.disconnect()

@@ -8,7 +8,8 @@
 class DABoard_Defines:
    'Class which contains all #defines from uhwd_common.h'
    def __init__(self):
-      print ("Calling Board_Defines class constructor")
+      a=1
+      # print ("Calling Board_Defines class constructor")
       
    DRAM_SIZE_BYTES           = 0x40000   
    CMD_NON_VAL               = 0x0       

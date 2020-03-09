@@ -48,30 +48,31 @@ class DABoard(object):
         self.sockfd.settimeout(5.0)
         self.soft_version = None
 
-    def connect(self, addr):
+    def connect(self, addr, print_msg = True):
         """Connect to Server"""
         #host = '149.199.131.176'
         self.ip = addr
         host = addr
-        print ('Host name is: {}'.format(host))
+
         try:
             self.sockfd.connect((host, self.port))
-            print ('connected')
+            if print_msg:
+                print (f'Host {host} is connected')
             # rcv_data = self.Read_RAM(0x80000000, 1024)
             # self.soft_version = [int(rcv_data[718]),int(rcv_data[717]),int(rcv_data[716])]
-            return 1
+            return True
         except socket.error as msg:
             self.sockfd.close()
-            self.sockfd = None
-        if self.sockfd is None:
-            print (f'ERROR:Could not open socket:{addr}')
-            return -1
+            if print_msg:
+                print (f'ERROR:Could not open socket:{addr}')
+            return False
 
 
-    def disconnect(self):
+    def disconnect(self, print_msg = True):
         """Close the connection to the server."""
         if self.sockfd is not None:
-            print ('Closing socket')
+            if print_msg:
+                print ('Closing socket')
             self.sockfd.close()
 
     def Write_Reg(self, bank, addr, data):
@@ -219,6 +220,7 @@ class DABoard(object):
                 sent = self.sockfd.send(msg)
             except:
                 print(f'{self.ip} socket failed')
+                break
             if sent == 0:
                 raise RuntimeError("Socket connection broken")
             totalsent = totalsent + sent
@@ -235,6 +237,7 @@ class DABoard(object):
                 bytes_recd = bytes_recd + len(chunk)
             except:
                 print(f'{self.ip} socket failed')
+                break
             # if chunk == '':
             #    raise RuntimeError("Socket connection broken")
 
@@ -298,7 +301,7 @@ class DABoard(object):
         return 0
     def DA_reprog(self):
         """Run command."""
-        print('da reprog please wait 20 seconds')
+        # print('da reprog please wait 10 seconds')
         cmd = self.board_def.CMD_CTRL_CMD
         ctrl = self.board_def.CTRL_REINIT
         data0 = 2
@@ -308,8 +311,9 @@ class DABoard(object):
         packet = struct.pack("4bLL", cmd, unpackedCtrl[0], unpackedCtrl[1], unpackedCtrl[2], data0, data1)
     #    print ('this is my cmd packet: {}'.format(repr(packet)))
         self.send_data(packet)
-        time.sleep(10)
-        print('da reprog done')
+        for i in range(10):
+            time.sleep(1)
+        # print(f'{self.ip} reprog done')
         return 0
 
     def SpiReadWrite(self,R_W=1, spi_dev=2, spi_sel=3, reg_addr=0, reg_data=0):
@@ -430,7 +434,8 @@ class DABoard(object):
         _ip_para = 0
         print(self.host_ip)
         for idx, _d in enumerate(self.host_ip.split('.')):
-            _ip_para = int(_d) << (24 - idx * 8)
+            _ip_para = _ip_para | (int(_d) << (24 - idx * 8))
+        print(hex(_ip_para))
         self.Run_Command(self.board_def.CTRL_MONITOR,enable, _ip_para)
 
     def WriteSeq(self,ch,seq):
@@ -488,7 +493,7 @@ class DABoard(object):
 
     def WriteFLASH_old(self, data):
         """Write to data to flash old version."""
-        print('program flash start')
+        # print('program flash start')
         start_addr = 9 << 18
         cmd = self.board_def.CMD_WRITE_MEM
         pad = 0xFFFFFF
@@ -512,7 +517,7 @@ class DABoard(object):
         self.sockfd.settimeout(5)
         # print(packet)
 
-        print('program flash end')
+        # print('program flash end')
         if stat != 0x0:
             print ('Ram Write Error stat={}!!!'.format(stat))
             return self.board_def.STAT_ERROR
@@ -553,7 +558,7 @@ class DABoard(object):
             config_addr 写入起始地址
             is_first_page 是否写入第一页
         """
-        print('program flash start')
+        # print('program flash start')
         # 地址最高位为1表示 写入FLASH操作
         # 地址低两位为1 表示常规写入， 为2表示写入第一页
         start_addr = 0x80000000 | (config_addr & 0x00FFFF00) | (is_first_page+1)
@@ -579,13 +584,13 @@ class DABoard(object):
         self.sockfd.settimeout(5)
         # print(packet)
 
-        print('program flash end')
+        # print('program flash end')
         if stat != 0x0:
             print ('Ram Write Error stat={}!!!'.format(stat))
             return self.board_def.STAT_ERROR
 
     def EraseFlashSector(self,addr, sectors):
-        print('sector erase start')
+        # print('sector erase start')
         # self.sockfd.settimeout(300)
         self.Run_Command(self.board_def.CTRL_ERASE_PART,addr, sectors)
         # self.sockfd.settimeout(5)
@@ -593,12 +598,16 @@ class DABoard(object):
         # print('sector erase stop')
 
     def EraseFlashEntire(self):
-        print('entire erase start')
-        self.sockfd.settimeout(1000)
-        self.Run_Command(self.board_def.CTRL_ERASE_ALL,0, 0)
-        self.sockfd.settimeout(5)
-        time.sleep(130)
-        print('entire erase end')
+        # print('entire erase start')
+        # self.sockfd.settimeout(130)
+        try:
+            self.Run_Command(self.board_def.CTRL_ERASE_ALL,0, 0)
+        finally:
+            pass
+        # self.sockfd.settimeout(5)
+        # time.sleep(100)
+        # print('entire erase end')
+        return 0
 
     def StartTrigAdapt(self):
         print('entire erase start')
@@ -609,6 +618,12 @@ class DABoard(object):
         status = self.Read_RAM(0x80000000, 1024)
         # print(status)
         return status[937]
+
+    def GetVersion(self):
+        status = self.Read_RAM(0x80000000, 1024)
+        # print(status)
+        ver = struct.unpack('4B', status[716:720])
+        return ver[::-1]
 
     def GetEraseStatus(self):
         self.sockfd.settimeout(60)

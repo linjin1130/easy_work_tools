@@ -356,7 +356,7 @@ class DABoard(RawBoard):
             self.get_return(1)
 
     def set_para(self, bank, addr, data=0):
-        print(f'{self.id} set para: {bank}, {addr}, {data}, {len(self.para_addr_list)}')
+        # print(f'{self.id} set para: {bank}, {addr}, {data}, {len(self.para_addr_list)}')
         self.para_addr_list.append((bank << 16) | addr)
         self.para_data_list.append(data)
         assert len(self.para_addr_list) <= 128
@@ -367,7 +367,7 @@ class DABoard(RawBoard):
         for addr, data in zip(self.para_addr_list, self.para_data_list):
             msg = msg + struct.pack('LL', addr, data)
         self.commiting = operation_dic['para']
-        print("commit para ", len(msg))
+        # print("commit para ", len(msg))
         ret = self.send_data(msg)
         if ret == 0:
             return ret
@@ -394,6 +394,11 @@ class DABoard(RawBoard):
         _head = struct.pack(format, *cmd)
         packet = _head + packet
         self.commiting = operation_dic['data']
+
+        # send_cnt = len(packet) >> 10
+        # for i in range(send_cnt):
+        #     ret = self.send_data(packet[i<<10:(i+1)<<10])
+
         ret = self.send_data(packet)
         if ret == 0:
             return ret
@@ -411,7 +416,7 @@ class DABoard(RawBoard):
             else:
                 cmd.append(0)
                 cmd.append(len(wave) << 0)
-                packet += wave #struct.pack(f'{len(wave)}H', *wave)
+                packet += wave #struct.pack(f'{len(wave)}H', *wave)send_int_trig
                 cmd.append(0)
                 cmd.append(len(seq) << 0)
                 packet += seq #struct.pack(f'{len(seq)}H', *seq)
@@ -419,8 +424,8 @@ class DABoard(RawBoard):
         if len(packet)== 0:
             return 0
 
-        print(f'data head: {cmd}, head len:{sum(cmd)}')
-        print("commit mem fast packet ", len(packet))
+        # print(f'data head: {cmd}, head len:{sum(cmd)}')
+        # print("commit mem fast packet ", len(packet))
         format = "4B16I"
         _head = struct.pack(format, *cmd)
         packet = _head + packet
@@ -491,7 +496,7 @@ class DABoard(RawBoard):
         # data = np.clip(data, 0, 65535).tolist()
 
         data = self.wave_calc_fast(channel, offset, wave)
-        print("write wave fast ", len(data))
+        # print("write wave fast ", len(data))
         start_addr = ((channel - 1) << 19) + 2 * offset
         if self.batch_mode:
             self.waves[channel - 1] = data.tobytes()
@@ -732,11 +737,11 @@ class DABoard(RawBoard):
         assert ch in [0,1,2,3,4]
 
         if self.batch_mode:
-            self.sync_ctrl(7, ch << 16)
+            self.sync_ctrl(20, ch << 16)
             self.trig_source = ch
             return 0
 
-        ret = self.write_command(0x00001805, 7, ch << 16)
+        ret = self.write_command(0x00001805, 20, ch << 16)
         if not ret == 0:
             self.disp_error(ret)
             logger.error("DAC %s set_trig_select failed!", self.id)
@@ -766,6 +771,7 @@ class DABoard(RawBoard):
         # if self.batch_mode:
         #     self.sync_ctrl(8,1 << 16)
         #     return self.commit_para()
+        # print('send int trig')
         ret = self.write_command(0x00001805, 8, 1 << 16)
         if not ret == 0:
             self.disp_error(ret)
@@ -859,7 +865,7 @@ class DABoard(RawBoard):
     def set_monitor(self, enable = 1):
         _ip_para = 0
         for idx, _d in enumerate(self.host_ip.split('.')):
-            _ip_para = int(_d) << (24 - idx * 8)
+            _ip_para = _ip_para | int(_d) << (24 - idx * 8)
         self.write_command(0x00001305, enable, _ip_para)
         return 0
 
@@ -1067,7 +1073,7 @@ class DABoard(RawBoard):
                 return 0
 
         stat, data = self.receive_data()
-        print(self.id, " insert wait response stat is ", stat)
+        # print(self.id, " insert wait response stat is ", stat)
         if stat == 0:
             if self.commiting == operation_dic['para']:
                 self.para_addr_list.clear()

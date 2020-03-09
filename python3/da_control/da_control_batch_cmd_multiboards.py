@@ -6,26 +6,42 @@ import filecmp
 
 import matplotlib.pyplot as plt
 # da_list = [113, 217, 188, 226, 149, 223, 153]
-# da_list = [164,]#, 217, 188, 226, 149, 223, 153]
+# da_list = [206,186,156,200,132,12,4,2,16,28,208,213]
+da_list = [206,156,12,4,2,28,213]
+# da_list = [156,200,12,2,16,28,208]
+# da_list = [206,186,156,200,132,12,4,2,16,28,208]
+da_list += [186, 157, 149, 211, 153, 164, 154]#, 217]
+# da_list += [ 158,  215,  137, 194, 144, 219, 216]
+da_list += [ 158,  215, 137,  194, 144, 219, 216]
+
+da_list = [ 158,  215, 137,  194, 144, 219, 216]
+da_list += [206,156,12,4,2,16,28]
+da_list += [ 157, 149, 211, 153, 164, 154]
+da_list = [ 144]
 # da_list = [i for i in range(80)]
-da_list = [157, 217, 188, 149, 211, 223, 153, 226, 164, 154]
+# da_list = [157, 217, 188, 149, 211, 223, 153, 226, 154]
 das = [DABoard(id=f'F{id}', ip=f'10.0.5.{id}', data_offset=[0,0,0,0], batch_mode=True) for id in da_list]
-for da in das:
-    da.connect()
-    # da.init_tcp()
-    da.init_device()
+
+def init():
+    for da in das:
+        da.connect()
+        # da.init_tcp()
+        da.init_device()
 
 
 da_ctrl = waveform()
 # da_ctrl.generate_seq()
-da_ctrl.generate_sin(repeat=2048)
+# da_ctrl.generate_sin(repeat=2048)
+_width = 2000
+da_ctrl.generate_squr(repeat=1, lowtime1=0, hightime=_width, lowtime2=_width, low=32768, high=65535, pad=1)
 da_ctrl.generate_seq()
 # da_ctrl.generate_trig_seq(loopcnt=1024)
 # print(len(da_ctrl.seq))
 # print(len(da_ctrl.wave))
 # print("wave")
-da_ctrl.wave = da_ctrl.wave[:1024]
-da_ctrl.seq = da_ctrl.seq[:32]
+# da_ctrl.wave_preview()
+# da_ctrl.wave = da_ctrl.wave[:20000]
+# da_ctrl.seq = da_ctrl.seq[:32]
 da_ctrl.wave = np.asarray(da_ctrl.wave, dtype='<u2')
 da_ctrl.seq = np.asarray(da_ctrl.seq, dtype='<u2')
 # c = da_ctrl.seq.tobytes()
@@ -47,15 +63,15 @@ def run_non_blocking(das, batch_mode):
         ts[0] = time.time()
         for da in das:
             for ch in range(4):
-                da.write_seq(ch+1,seq=da_ctrl.seq)
-                da.write_wave(ch+1,wave=da_ctrl.wave)
-                # da.write_seq_fast(ch+1,seq=da_ctrl.seq)
-                # da.write_wave_fast(ch+1,wave=da_ctrl.wave)
+                # da.write_seq(ch+1,seq=da_ctrl.seq)
+                # da.write_wave(ch+1,wave=da_ctrl.wave)
+                da.write_seq_fast(ch+1,seq=da_ctrl.seq)
+                da.write_wave_fast(ch+1,wave=da_ctrl.wave)
         ts[1] = time.time()
         if batch_mode:
             for da in das:\
-                da.commit_mem()
-                # da.commit_mem_fast()
+                # da.commit_mem()
+                da.commit_mem_fast()
         ts[2] = time.time()
         if batch_mode:
             for da in das:
@@ -125,10 +141,15 @@ def draw(_t, batch_mode):
     # plt.legend(loc='BestOutside')
     # plt.legend()
     plt.show()
+    time.sleep(2)
+    plt.close()
 
 def test(batch_mode):
     all_t = run(batch_mode)
     _t = process(all_t)
-    draw(_t, batch_mode)
+    # draw(_t, batch_mode)
 
-test(batch_mode=True)
+for i in range(1):
+    init()
+    test(batch_mode=True)
+    print(f'当前测试轮数：{i}')

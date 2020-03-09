@@ -12,7 +12,9 @@ from matplotlib.pyplot import savefig
 import matplotlib as mpl
 # mpl.rcParams['font.family'] = 'sans-serif'
 # mpl.rcParams['font.sans-serif'] = 'NSimSun,Times New Roman' #中文除外的设置成New Roman，中文设置成宋体
-# mpl.rcParams['axes.unicode_minus']=False
+plt.rcParams['axes.unicode_minus']=False
+plt.rcParams['font.family'] = ['sans-serif']
+plt.rcParams['font.sans-serif'] = ['SimHei']
 
 mode = (u'直接输出', u'一级循环开始', u'一级循环结束', u'二级循环开始', u'二级循环结束', u'三级循环开始',u'三级循环结束', u'四级循环开始', u'四级循环结束','触发输出',u'计数输出',u'态判断输出',u'')
 def print_csv(x_list, unit, listv, listv1, listv2, dirname,note, filename, outdir):
@@ -100,8 +102,10 @@ class waveform:
         self.wave = None
         self.generate_sin()
 
-    def generate_seq(self, start_addr=0, length=40):
+    def generate_seq(self, start_addr=0, length=None):
         ## 生成连续波形序列
+        if length == None:
+            length = len(self.wave) >> 3
         unit = [start_addr,length,0,0]
         self.seq = unit*4096
 

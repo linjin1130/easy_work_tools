@@ -3,7 +3,7 @@ import filecmp
 from data_waves import *
 import matplotlib.pyplot as plt
 da = DABoard()
-new_ip = '10.0.5.188'
+new_ip = '10.0.5.200'
 
 board_status = da.connect(new_ip)
 # da.Run_Command(26,0,0)
@@ -40,7 +40,7 @@ da_ctrl.generate_trig_seq(loopcnt=1024)
 print(len(da_ctrl.wave))
 cnt=0
 
-for i in range(1000000):
+for i in range(10):
     da.WriteSeq(1,da_ctrl.seq)
     da.WriteWave(1,da_ctrl.wave)
     da.WriteSeq(2,da_ctrl.seq)
